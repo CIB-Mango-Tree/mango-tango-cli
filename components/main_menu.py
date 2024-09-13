@@ -1,6 +1,7 @@
 from terminal_tools import prompts, draw_box
 from terminal_tools.inception import Context
 from .new_analysis import new_analysis
+from sys import exit
 
 
 def main_menu(context: Context):
