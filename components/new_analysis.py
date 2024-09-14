@@ -45,7 +45,8 @@ def new_analysis(context: Context):
 
     else:
       print(
-        f"Unsupported file type: {file_extension or '(file with no extension)'}"
+        f"Unsupported file type: {
+          file_extension or '(file with no extension)'}"
       )
       wait_for_key(True)
       return
@@ -55,7 +56,8 @@ def new_analysis(context: Context):
     for col in df.columns:
       semantic = infer_series_semantic(df[col])
       print(
-        f"Column semantic: {col} - {semantic.semantic_name if semantic else df.schema.get(col)}"
+        f"Column semantic: {
+          col} - {semantic.semantic_name if semantic else df.schema.get(col)}"
       )
 
     wait_for_key(True)
