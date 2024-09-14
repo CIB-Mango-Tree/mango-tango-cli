@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.12
 
       - name: Install dependencies
         run: |
@@ -36,17 +36,12 @@ jobs:
           Get-FileHash -Algorithm SHA1 dist/mangotango.exe | Format-Table Hash -HideTableHeaders > dist/mangotango.exe.sha1
         shell: pwsh
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: mangotango
-          path: dist # Path where the .exe will be stored
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/mangotango.exe
             dist/mangotango.exe.sha1
+            build/pyinstaller/xref-pyinstaller.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
