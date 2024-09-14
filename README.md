@@ -1,5 +1,9 @@
 # mango-tango-cli: A python terminal wrapper for CIB Mango Tree analyzers
 
+## Requirements
+
+Python 3.12
+
 ## Setting up
 
 ```shell
