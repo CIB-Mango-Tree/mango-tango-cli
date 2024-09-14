@@ -27,7 +27,7 @@ def new_analysis(context: Context):
       try:
         with context.nest("Reading CSV file..."):
           print("Opening file...")
-          with open(selected_file, "r") as file:
+          with open(selected_file, "r", encoding="utf8") as file:
             dialect = csv.Sniffer().sniff(file.read(65536))
 
           df = pl.read_csv(
