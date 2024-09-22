@@ -1,7 +1,8 @@
 import csv
 import os
 
-import polars as pl
+import pandas as pd
+from pandas.core.dtypes.base import ExtensionDtype
 
 from preprocessing.series_semantic import infer_series_semantic
 from terminal_tools import prompts, wait_for_key, draw_box
@@ -30,14 +31,13 @@ def new_analysis(context: Context):
           with open(selected_file, "r", encoding="utf8") as file:
             dialect = csv.Sniffer().sniff(file.read(65536))
 
-          df = pl.read_csv(
+          df = pd.read_csv(
             selected_file,
-            separator=dialect.delimiter,
-            quote_char=dialect.quotechar,
-            ignore_errors=True,
-            has_header=True,
-            truncate_ragged_lines=True,
+            delimiter=dialect.delimiter,
+            quotechar=dialect.quotechar,
+            header="infer"
           )
+
       except Exception as e:
         print(f"Error reading CSV file: {e}")
         wait_for_key(True)
@@ -45,8 +45,7 @@ def new_analysis(context: Context):
 
     else:
       print(
-        f"Unsupported file type: {
-          file_extension or '(file with no extension)'}"
+        f"Unsupported file type: {file_extension or '(file with no extension)'}"
       )
       wait_for_key(True)
       return
@@ -56,8 +55,7 @@ def new_analysis(context: Context):
     for col in df.columns:
       semantic = infer_series_semantic(df[col])
       print(
-        f"Column semantic: {
-          col} - {semantic.semantic_name if semantic else df.schema.get(col)}"
+        f"Column semantic: {col} - {semantic.semantic_name if semantic else present_column_type(df.dtypes[col])}"
       )
 
     wait_for_key(True)
@@ -77,3 +75,9 @@ def new_analysis(context: Context):
   if action == "ngrams":
     print("Coming soon")
     wait_for_key(True)
+
+
+def present_column_type(type: ExtensionDtype):
+  if str(type) == "object":
+    return "string"
+  return str(type)
