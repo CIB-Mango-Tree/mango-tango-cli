@@ -14,7 +14,8 @@ a = Analysis(
     binaries=[],
     datas=datas,          # Include any non-Python data files if needed
     hiddenimports=[
-        'readchar'
+        'readchar',
+        'numpy'
     ],  # Include any imports that PyInstaller might miss
     hookspath=[],
     runtime_hooks=[],
