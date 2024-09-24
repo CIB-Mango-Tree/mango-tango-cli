@@ -3,3 +3,4 @@ __pycache__
 __private__
 /build
 /dist
+/analysis_outputs

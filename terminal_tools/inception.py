@@ -37,9 +37,14 @@ class Scope:
   def print(self):
     print(self.text)
 
+  def refresh(self):
+    """Clear the terminal and repaint with every scope up and including to this one"""
+    self.context._refresh()
+
   def __enter__(self):
     self.context._append_scope(self)
     self.context._refresh()
+    return self
 
   def __exit__(self, exc_type, exc_val, exc_tb):
     self.context._remove_scope(self)
