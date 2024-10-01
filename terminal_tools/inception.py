@@ -9,7 +9,7 @@ in memory and printed to the terminal at each refresh.
 from .utils import clear_terminal
 
 
-class Context:
+class TerminalContext:
   def __init__(self):
     self.scopes: list[Scope] = []
 
@@ -30,7 +30,7 @@ class Context:
 
 
 class Scope:
-  def __init__(self, context: Context, text: str):
+  def __init__(self, context: TerminalContext, text: str):
     self.context = context
     self.text = text
 

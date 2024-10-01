@@ -4,4 +4,5 @@ from .utils import (
   clear_printed_lines,
   draw_box,
   wait_for_key,
+  open_directory_explorer
 )
