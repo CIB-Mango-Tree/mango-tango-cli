@@ -17,6 +17,9 @@ class Project(BaseModel):
   display_name: str
 
 
+SupportedOutputExtension = Literal["parquet", "csv", "xlsx", "json"]
+
+
 class Storage:
   def __init__(self, *, app_name: str, app_author: str):
     self.user_data_dir = platformdirs.user_data_dir(
@@ -56,33 +59,86 @@ class Storage:
 
   def save_project_primary_outputs(self, project_id: str, analyzer_id: str, outputs: dict[str, pl.DataFrame]):
     for output_id, output_df in outputs.items():
-      self.save_project_primary_output(
-        project_id, analyzer_id, output_id, output_df, "parquet")
+      self._save_output(
+        os.path.join(self._get_project_primary_output_root_path(
+          project_id, analyzer_id), output_id),
+        output_df,
+        "parquet",
+      )
 
-  def save_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, output_df: str, format: Literal["parquet", "csv", "excel", "json"]):
-    root_path = self._get_project_primary_output_root_path(
-      project_id, analyzer_id)
-    os.makedirs(root_path, exist_ok=True)
-    if format == "parquet":
-      output_df.write_parquet(os.path.join(root_path, f"{output_id}.parquet"))
-    elif format == "csv":
-      output_df.write_csv(os.path.join(root_path, f"{output_id}.csv"))
-    elif format == "excel":
-      output_df.write_excel(os.path.join(root_path, f"{output_id}.xlsx"))
-    elif format == "json":
-      output_df.write_json(os.path.join(root_path, f"{output_id}.json"))
+  def save_project_secondary_outputs(self, project_id: str, analyzer_id: str, secondary_id: str, outputs: dict[str, pl.DataFrame]):
+    for output_id, output_df in outputs.items():
+      self._save_output(
+        os.path.join(self._get_project_secondary_output_root_path(
+          project_id, analyzer_id, secondary_id), output_id),
+        output_df,
+        "parquet",
+      )
+
+  def save_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, output_df: pl.DataFrame, extension: SupportedOutputExtension):
+    root_path = self._get_project_secondary_output_root_path(
+      project_id, analyzer_id, secondary_id)
+    self._save_output(
+      os.path.join(root_path, output_id), output_df, extension,
+    )
+
+  def _save_output(self, output_path_without_extension, output_df: pl.DataFrame, extension: SupportedOutputExtension,):
+    os.makedirs(os.path.dirname(output_path_without_extension), exist_ok=True)
+    output_path = f"{output_path_without_extension}.{extension}"
+    if extension == "parquet":
+      output_df.write_parquet(output_path)
+    elif extension == "csv":
+      output_df.write_csv(output_path)
+    elif extension == "xlsx":
+      output_df.write_excel(output_path)
+    elif extension == "json":
+      output_df.write_json(output_path)
     else:
-      raise ValueError(f"Unsupported format: {format}")
+      raise ValueError(f"Unsupported format: {extension}")
+    return output_path
 
   def load_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str):
     output_path = os.path.join(self._get_project_primary_output_root_path(
       project_id, analyzer_id), f"{output_id}.parquet")
     return pl.read_parquet(output_path)
 
+  def load_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str):
+    output_path = os.path.join(self._get_project_secondary_output_root_path(
+      project_id, analyzer_id, secondary_id), f"{output_id}.parquet")
+    return pl.read_parquet(output_path)
+
+  def export_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, extension: SupportedOutputExtension):
+    output_df = self.load_project_primary_output(
+      project_id, analyzer_id, output_id)
+    output_path = os.path.join(
+      self._get_project_exports_root_path(project_id, analyzer_id),
+      output_id
+    )
+    return self._save_output(output_path, output_df, extension)
+
+  def export_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, extension: SupportedOutputExtension):
+    output_df = self.load_project_secondary_output(
+      project_id, analyzer_id, secondary_id, output_id)
+    output_path = os.path.join(
+      self._get_project_exports_root_path(project_id, analyzer_id),
+      (secondary_id if secondary_id ==
+       output_id else f"{secondary_id}__{output_id}")
+    )
+    return self._save_output(output_path, output_df, extension)
+
   def list_project_analyses(self, project_id: str):
     project_path = self._get_project_path(project_id)
     try:
       analyzers = os.listdir(os.path.join(project_path, "analyzers"))
+      return analyzers
+    except FileNotFoundError:
+      return []
+
+  def list_project_secondary_analyses(self, project_id: str, analyzer_id: str):
+    project_path = self._get_project_path(project_id)
+    try:
+      analyzers = os.listdir(os.path.join(
+        project_path, "analyzers", analyzer_id, "secondary_outputs"))
       return analyzers
     except FileNotFoundError:
       return []
@@ -125,6 +181,12 @@ class Storage:
 
   def _get_project_primary_output_root_path(self, project_id: str, analyzer_id: str):
     return os.path.join(self._get_project_path(project_id), "analyzers", analyzer_id, "primary_outputs")
+
+  def _get_project_secondary_output_root_path(self, project_id: str, analyzer_id: str, secondary_id: str):
+    return os.path.join(self._get_project_path(project_id), "analyzers", analyzer_id, "secondary_outputs", secondary_id)
+
+  def _get_project_exports_root_path(self, project_id: str, analyzer_id: str):
+    return os.path.join(self._get_project_path(project_id), "analyzers", analyzer_id, "exports")
 
   def _lock_database(self):
     """

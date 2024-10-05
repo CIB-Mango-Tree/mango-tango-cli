@@ -3,7 +3,7 @@ import os
 from inquirer import (
   confirm as inquirer_confirm,
   list_input as inquirer_list_input,
-  text as inquirer_text,
+  text as inquirer_text, checkbox as inquirer_checkbox
 )
 
 from .utils import clear_printed_lines
@@ -38,7 +38,7 @@ def file_selector(
             for entry in sorted(os.listdir(current_path))
         ),
     ]
-    selected_entry = list_input(message, choices=choices)
+    selected_entry = list_input(message, choices=choices, carousel=False)
 
     # inquirer will show up to 14 lines including the header
     # we have one line for the current path to rewrite
@@ -58,7 +58,14 @@ def list_input(message: str, **kwargs):
   """
   Wraps `inquirer`'s list input and catches KeyboardInterrupt
   """
-  return wrap_keyboard_interrupt(lambda: inquirer_list_input(message, **kwargs))
+  return wrap_keyboard_interrupt(lambda: inquirer_list_input(message, carousel=True, **kwargs))
+
+
+def checkbox(message: str, **kwargs):
+  """
+  Wraps `inquirer`'s checkbox and catches KeyboardInterrupt
+  """
+  return wrap_keyboard_interrupt(lambda: inquirer_checkbox(message, carousel=True, **kwargs))
 
 
 def confirm(message: str, **kwargs):

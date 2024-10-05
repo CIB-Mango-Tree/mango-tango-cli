@@ -5,13 +5,14 @@ import polars as pl
 from analyzer_interface import (AnalyzerInterface, InputColumn,
                                 UserInputColumn, column_automap,
                                 get_data_type_compatibility_score)
-from analyzers import all_analyzers
+from analyzers import suite
 from storage import Storage
 from terminal_tools import (draw_box, prompts,
                             wait_for_key)
 from terminal_tools.inception import TerminalContext
 
 from .utils import ProjectInstance, get_user_columns
+from .export_outputs import get_all_outputs, export_format_prompt, export_outputs_sequence
 
 
 def new_analysis(context: TerminalContext, storage: Storage, project: ProjectInstance):
@@ -23,7 +24,7 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         ("(Back)", None),
         *(
           (f"{analyzer.name} ({analyzer.short_description})", analyzer)
-          for analyzer in all_analyzers
+          for analyzer in suite.primary_anlyzers
         ),
       ],
     )
@@ -110,14 +111,32 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         )
       )
 
-      for output in analyzer.outputs:
-        output_df = output_dfs[output.id]
-        print(f"Output: {output.name}")
-        print(output_df)
-
       storage.save_project_primary_outputs(project.id, analyzer.id, output_dfs)
-      print("Analysis results saved")
-      wait_for_key(True)
+      print("Base analysis finished")
+
+      for secondary in suite.find_secondary_analyzers(analyzer, autorun=True):
+        print("Running analysis: ", secondary.name)
+        secondary_output_dfs = secondary.entry_point(output_dfs)
+        storage.save_project_secondary_outputs(
+          project.id, analyzer.id, secondary.id, secondary_output_dfs)
+        print(f"Analysis {secondary.name} finished")
+
+      outputs = get_all_outputs(storage, project, analyzer)
+      print("")
+      print("You now have the option to export the following outputs:")
+      for output in outputs:
+        print(output.name)
+      print("")
+
+      export_format = export_format_prompt()
+      if export_format is None:
+        print("No problem. You can also export outputs later from the analysis menu.")
+        wait_for_key(True)
+      else:
+        export_outputs_sequence(
+          storage, project, analyzer, outputs, export_format
+        )
+
       return analyzer
 
     except KeyboardInterrupt:
