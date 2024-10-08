@@ -38,7 +38,7 @@ def file_selector(
             for entry in sorted(os.listdir(current_path))
         ),
     ]
-    selected_entry = list_input(message, choices=choices, carousel=False)
+    selected_entry = list_input(message, choices=choices)
 
     # inquirer will show up to 14 lines including the header
     # we have one line for the current path to rewrite
@@ -58,14 +58,14 @@ def list_input(message: str, **kwargs):
   """
   Wraps `inquirer`'s list input and catches KeyboardInterrupt
   """
-  return wrap_keyboard_interrupt(lambda: inquirer_list_input(message, carousel=True, **kwargs))
+  return wrap_keyboard_interrupt(lambda: inquirer_list_input(message, **kwargs))
 
 
 def checkbox(message: str, **kwargs):
   """
   Wraps `inquirer`'s checkbox and catches KeyboardInterrupt
   """
-  return wrap_keyboard_interrupt(lambda: inquirer_checkbox(message, carousel=True, **kwargs))
+  return wrap_keyboard_interrupt(lambda: inquirer_checkbox(message, **kwargs))
 
 
 def confirm(message: str, **kwargs):
