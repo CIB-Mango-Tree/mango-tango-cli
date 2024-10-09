@@ -4,6 +4,7 @@ from terminal_tools import (draw_box, open_directory_explorer, prompts,
                             wait_for_key)
 from terminal_tools.inception import TerminalContext
 
+from .analysis_web_server import analysis_web_server
 from .export_outputs import export_outputs
 from .utils import ProjectInstance
 
@@ -16,6 +17,7 @@ def analysis_main(context: TerminalContext, storage: Storage, project: ProjectIn
         choices=[
           ("Open output directory", "open_output_dir"),
           ("Export outputs", "export_output"),
+          ("Launch Web Server", "web_server"),
           ("(Back)", None),
         ],
       )
@@ -33,4 +35,8 @@ def analysis_main(context: TerminalContext, storage: Storage, project: ProjectIn
 
     if action == "export_output":
       export_outputs(context, storage, project, analyzer)
+      continue
+
+    if action == "web_server":
+      analysis_web_server(context, storage, project, analyzer)
       continue

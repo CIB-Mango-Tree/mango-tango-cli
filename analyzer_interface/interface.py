@@ -1,7 +1,8 @@
-from typing import Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional
 
 import polars as pl
 from pydantic import BaseModel
+from dash import Dash
 
 
 class BaseAnalyzerInterface(BaseModel):
@@ -85,6 +86,27 @@ class SecondaryAnalyzerDeclaration(SecondaryAnalyzerInterface):
 
   def __init__(self, interface: SecondaryAnalyzerInterface, main: Callable):
     super().__init__(**interface.model_dump(), entry_point=main)
+
+
+class WebPresenterInterface(BaseAnalyzerInterface):
+  base_analyzer: AnalyzerInterface
+  """
+  The base analyzer that this secondary analyzer extends. The secondary
+  analyzer will process the outputs of this base analyzer.
+  """
+
+
+class WebPresenterDeclaration(WebPresenterInterface):
+  factory: Callable[[dict[str, pl.DataFrame], Dash], None]
+  """
+  The factory function that creates a Dash app for the web presenter. It receives
+  a dictionary of the base analyzer's dataframes and returns a Dash app.
+  """
+
+  server_name: str
+
+  def __init__(self, interface: WebPresenterInterface, factory: Callable, name: str):
+    super().__init__(**interface.model_dump(), factory=factory, server_name=name)
 
 
 class AnalyzerInput(BaseModel):

@@ -16,7 +16,7 @@ OUTPUT_MESSAGE_AUTHORS = "message_authors"
 interface = AnalyzerInterface(
   id="ngrams",
   version="0.1.0",
-  name="ngrams",
+  name="N-gram Analysis",
   short_description="Extracts n-grams from text data",
   long_description="""
 The n-gram analysis extract n-grams (sequences of n words) from the text data
