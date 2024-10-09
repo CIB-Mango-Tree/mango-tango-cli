@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>CIB Mango Tree Data</title>
+        <link rel="icon" type="image/png" href="./images/favicon-32.PNG">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="content-container">
+            <div class="header-div">
+                <img class="logo" src="./images/mango-text.PNG">
+                <h1 class="heading">Coordinated Posting Test Output</h1>
+            </div>
+            <input type="file" id="csvFileInput" accept=".csv">
+            <div id="view-options">
+                <h5>View By</h5>
+                <input type="radio" id="by-posts" name="view-option" value="by-posts" checked>
+                <label for="by-posts">Posts</label>
+                <br>
+                <input type="radio" id="by-users" name="view-option" value="by-users">
+                <label for="by-users">Users</label>
+            </div>
+            <div id="data-container">
+                <p>Upload your CSV file here to view it in HTML format.</p>
+            </div>
+        </div>
+        <script src="csv-to-html.js"></script>
+    </body>
+</html>
