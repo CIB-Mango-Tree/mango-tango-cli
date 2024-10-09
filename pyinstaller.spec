@@ -5,16 +5,22 @@ from PyInstaller.utils.hooks import copy_metadata
 
 block_cipher = None
 
-# inquirer depends on readchar as a hidden dependency that requires package metadata
-datas = copy_metadata('readchar')
-
 a = Analysis(
     ['mangotango.py'],  # Entry point
     pathex=['.'],    # Ensure all paths are correctly included
     binaries=[],
-    datas=datas,          # Include any non-Python data files if needed
+    datas=[
+        # inquirer depends on readchar as a hidden dependency that requires package metadata
+        *copy_metadata('readchar'),
+
+        # static assets for web servers
+        ('./components/web_static', 'components/web_static'),
+        ('./components/web_templates', 'components/web_templates')
+    ],
     hiddenimports=[
-        'readchar'
+        'readchar',
+        'numpy',
+        'numpy.core.multiarray'
     ],  # Include any imports that PyInstaller might miss
     hookspath=[],
     runtime_hooks=[],
