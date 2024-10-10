@@ -2,3 +2,7 @@ inquirer==3.4.0
 polars==1.7.1
 pydantic==2.9.1
 ipykernel==6.29.5
+plotly==5.24.1
+pandas==2.2.3
+pyarrow==17.0.0
+nbformat==5.10.4
