@@ -9,7 +9,7 @@ What we do:
 1. **Test:** Compute the gini coefficient over the sampled tweets, per each day. (Gini closer to 1 indicates coordination, Gini closer to 0 indicates no coordination).
 1. We expect Gini coefficient to increase after Day 11, indicating CIB.
 
-Below we print a random sample of 10 tweets on Day 1 (no CIB) and Day 11 (CIB). We seeg hashtags related to Mangos on Day 11. Gini should pick up on that.
+Below we print a random sample of 10 tweets on Day 1 (no CIB) and Day 11 (CIB). We see hashtags related to Mangos on Day 11. Gini should pick up on that.
 
     Day1: #Skiing, #Reading, #Cooking, #Cooking, #Music, #Fitness, #Fitness, #Music, #Antiquing, #Homebrewing
     
