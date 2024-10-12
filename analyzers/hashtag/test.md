@@ -51,3 +51,37 @@ We can compare all three scenarios in the same plot and the same scale to confir
 ![png](test_files/test_15_0.png)
     
 
+
+## Possible raw output of a test
+
+Below we print a possible output of a hashtag test. In its simplest form it's just a table with three columns:  
+
+    shape: (21, 3)
+    ┌────────────┬─────────────────────────────────┬──────────────────┐
+    │ Time Stamp ┆ Hashtags                        ┆ Gini Coefficient │
+    │ ---        ┆ ---                             ┆ ---              │
+    │ date       ┆ list[str]                       ┆ f64              │
+    ╞════════════╪═════════════════════════════════╪══════════════════╡
+    │ 2024-10-01 ┆ ["Traveling", "Birdwatching", … ┆ 0.08             │
+    │ 2024-10-02 ┆ ["Mangoes", "DIY", … "Running"… ┆ 0.06             │
+    │ 2024-10-03 ┆ ["Traveling", "Mangoes", … "Or… ┆ 0.11             │
+    │ 2024-10-04 ┆ ["Homebrewing", "Mango", … "Ar… ┆ 0.1              │
+    │ 2024-10-05 ┆ ["Mango", "Skating", … "Juggli… ┆ 0.1              │
+    │ …          ┆ …                               ┆ …                │
+    │ 2024-10-17 ┆ ["Mangoes", "Mango", … "Mangoe… ┆ 0.51             │
+    │ 2024-10-18 ┆ ["Mangoes", "MangoTime", … "Ga… ┆ 0.48             │
+    │ 2024-10-19 ┆ ["LowHangingFruit", "MangoTime… ┆ 0.48             │
+    │ 2024-10-20 ┆ ["Knitting", "Traveling", … "P… ┆ 0.48             │
+    │ 2024-10-21 ┆ ["Mango", "Podcasting", … "Man… ┆ 0.47             │
+    └────────────┴─────────────────────────────────┴──────────────────┘
+
+
+- Time Stamp: a time window over which Gini coefficient is computed
+- Hashtags (optional): The set of hashtags found over the time window
+- Gini coefficient: the metric the test computes
+
+With this output, the user could then infer whether or not there is evidence for coordinated behavior.  
+
+### Notes
+
+Note that this test only provides evidence for coordinated behavior, but cannot provide evidence whether it is authentic or inauthentic. If Taylor Swift has a new album out, there would be an increase in tweets with Taylor Swift hashtags, which is an example of coordinated spontaneous behavior, but not inauthentic.
