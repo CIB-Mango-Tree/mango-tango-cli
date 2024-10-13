@@ -19,16 +19,15 @@ def factory(ngrams_outputs: dict[str, pl.DataFrame], dash: Dash):
   df_message_authors = ngrams_outputs[OUTPUT_MESSAGE_AUTHORS]
 
   df_ngram_total_reps = (
-    df_ngrams.join(df_message_ngrams, on=COL_NGRAM_ID)
+    df_message_ngrams
       .group_by(COL_NGRAM_ID)
       .agg(pl.sum(COL_MESSAGE_NGRAM_COUNT).alias("total_reps"))
   )
 
   df_ngram_distinct_posters = (
     df_message_ngrams.join(df_message_authors, on=COL_MESSAGE_ID)
-      .unique([COL_NGRAM_ID, COL_AUTHOR_ID])
       .group_by(COL_NGRAM_ID)
-      .agg(pl.count(COL_AUTHOR_ID).alias("poster_count"))
+      .agg(pl.n_unique(COL_AUTHOR_ID).alias("poster_count"))
   )
 
   df_ngram_summary = (

@@ -37,6 +37,9 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
       wait_for_key(True)
 
     user_columns = get_user_columns(df)
+    user_columns_by_name = {
+      user_column.name: user_column for user_column in user_columns
+    }
     draft_column_mapping = column_automap(
       user_columns,
       analyzer.input.columns
@@ -104,12 +107,15 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
       return
 
     try:
-      output_dfs: dict[str, pl.Dataframe] = analyzer.entry_point(
-        df.select(
-          pl.col(user_col).alias(input_col)
-          for input_col, user_col in final_column_mapping.items()
-        )
-      )
+      input_df = pl.DataFrame({
+        input_col:
+          user_columns_by_name
+            .get(user_col)
+            .apply_semantic_transform()
+        for input_col, user_col in final_column_mapping.items()
+      })
+
+      output_dfs: dict[str, pl.Dataframe] = analyzer.entry_point(input_df)
 
       storage.save_project_primary_outputs(project.id, analyzer.id, output_dfs)
       print("Base analysis finished")
