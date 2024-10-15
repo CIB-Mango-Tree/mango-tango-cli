@@ -119,12 +119,12 @@ def plot_time_of_day_to_terminal(grouped_df: pl.DataFrame, TIME__INTERVAL__LENGT
     plt.title(f'Count of Records by Time of Day ({TIME__INTERVAL__LENGTH}-min intervals)')
     plt.xlabel(f'{TIME__INTERVAL__LENGTH}-Minute Interval Label')
     plt.ylabel('Count')
+    plt.xticks(np.arange(0, len(grouped_df['time_interval']) + 1, 5), np.array(grouped_df['time_interval'][::5])) # ! struggles to plot first x-tick when TIME__INTERVAL__LENGTH = 60 (bug with plotext?)
     plt.yticks(np.arange(0, grouped_df['count'].max()+5, 5), np.arange(0, grouped_df['count'].max()+5, 5))
-    plt.xfrequency(2) # TODO: work on creating xticks at even intervals
     plt.show()
 
 def plot_time_of_day_to_plotly(grouped_df: pl.DataFrame, TIME__INTERVAL__LENGTH: int, save_fig=False, save_method='html', filename=f'frequency_bar_graph'):
-    """
+    """ 
     Plot the grouped Polars dataframe on Plotly with the option to export as HTML, PNG, etc. 
     """
     
@@ -138,7 +138,7 @@ def plot_time_of_day_to_plotly(grouped_df: pl.DataFrame, TIME__INTERVAL__LENGTH:
             )
 
     # Show the plot
-    fig.show() # TODO: Allow for graph export and/or upload to HTML
+    # fig.show() # TODO: Allow for graph export and/or upload to HTML
 
     if save_fig:
         if save_method == 'html':
@@ -157,8 +157,8 @@ if __name__ == "__main__":
     df, datetime_col_name = load_csv(CSV__INPUT)
     df = process_datetime_feature_engineering(df, datetime_col_name)
 
-    TIME__INTERVAL__LENGTH = 30
+    TIME__INTERVAL__LENGTH = 60
     grouped_df = analyze_time_of_day(df, TIME__INTERVAL__LENGTH)
     plot_time_of_day_to_terminal(grouped_df, TIME__INTERVAL__LENGTH)
     plot_time_of_day_to_plotly(grouped_df, TIME__INTERVAL__LENGTH)
-    save_df_to_csv(grouped_df, 'time_interval_analysis')
+    # save_df_to_csv(grouped_df, 'time_interval_analysis') # TODO: if user elects to export to CSV
