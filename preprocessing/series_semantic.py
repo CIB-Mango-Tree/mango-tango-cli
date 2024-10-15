@@ -2,6 +2,7 @@ import polars as pl
 from pydantic import BaseModel
 from typing import Union, Type, Callable
 from analyzer_interface import DataType
+from datetime import datetime
 
 
 class SeriesSemantic(BaseModel):
@@ -38,19 +39,26 @@ datetime_string = SeriesSemantic(
   data_type="datetime"
 )
 
+
 timestamp_seconds = SeriesSemantic(
   semantic_name="timestamp_seconds",
   column_type=lambda dt: dt.is_numeric(),
-  prevalidate=lambda s: s.gt(946_684_800) & s.lt(2_524_608_000),
   try_convert=lambda s: (s * 1_000).cast(pl.Datetime(time_unit="ms")),
+  validate_result=lambda s: (
+    (s > datetime(2000, 1, 1)) &
+    (s < datetime(2100, 1, 1))
+  ),
   data_type="datetime"
 )
 
 timestamp_milliseconds = SeriesSemantic(
   semantic_name="timestamp_milliseconds",
   column_type=lambda dt: dt.is_numeric(),
-  prevalidate=lambda s: s.gt(946_684_800_000) & s.lt(2_524_608_000_000),
   try_convert=lambda s: s.cast(pl.Datetime(time_unit="ms")),
+  validate_result=lambda s: (
+    (s > datetime(2000, 1, 1)) &
+    (s < datetime(2100, 1, 1))
+  ),
   data_type="datetime"
 )
 
