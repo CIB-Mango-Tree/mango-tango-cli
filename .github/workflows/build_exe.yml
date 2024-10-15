@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build Executables
 
 on:
   push:
@@ -8,7 +8,24 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest # Use the Windows environment
+    strategy:
+      matrix:
+        platform:
+          # - windows
+          - macos-14
+        include:
+          - platform: windows
+            os: windows-2022
+            move_command: move dist\mangotango.exe dist\mangotango_windows.exe
+            sha_command: pwsh -c "Get-FileHash -Algorithm SHA1 dist\mangotango_windows.exe | Format-Table Hash -HideTableHeaders > dist\mangotango_windows.exe.sha1"
+            list_command: dir dist
+          - platform: macos-14
+            os: macos-14
+            move_command: mv dist/mangotango dist/mangotango_macos_14
+            sha_command: shasum -a 1 dist/mangotango_macos_14 > dist/mangotango_macos_14.sha1
+            list_command: ls -ll dist
+
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -23,9 +40,9 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ matrix.platform }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ matrix.platform }}-pip-
 
       - name: Install dependencies
         run: |
@@ -38,19 +55,36 @@ jobs:
       - name: Build the executable
         run: |
           pyinstaller pyinstaller.spec
-        shell: cmd # Use cmd since PyInstaller uses Windows paths
 
-      - name: Generate SHA-1 checksum
-        run: |
-          Get-FileHash -Algorithm SHA1 dist/mangotango.exe | Format-Table Hash -HideTableHeaders > dist/mangotango.exe.sha1
-        shell: pwsh
+      - name: Rename the executable to include platform suffix
+        run: ${{ matrix.move_command }}
+
+      - name: Compute the SHA1 hashsum
+        run: ${{ matrix.sha_command }}
+
+      - name: Inspect the dist/ directory before uploading artifacts
+        run: ${{ matrix.list_command }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform }}
+          path: |
+            dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/mangotango.exe
-            dist/mangotango.exe.sha1
-            build/pyinstaller/xref-pyinstaller.html
+            artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
