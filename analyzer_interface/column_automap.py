@@ -15,10 +15,10 @@ def column_automap(user_columns: list[UserInputColumn], input_schema_columns: li
   The resulting dictionary is keyed by the expected input column name.
   """
   matches: dict[str, str] = {}
-  for user_column in user_columns:
+  for input_column in input_schema_columns:
     max_score = None
-    best_match_input_column = None
-    for input_column in input_schema_columns:
+    best_match_user_column = None
+    for user_column in user_columns:
       current_score = get_data_type_compatibility_score(
         input_column.data_type, user_column.data_type
       )
@@ -38,10 +38,10 @@ def column_automap(user_columns: list[UserInputColumn], input_schema_columns: li
 
       if max_score is None or current_score > max_score:
         max_score = current_score
-        best_match_input_column = input_column
+        best_match_user_column = user_column
 
-    if best_match_input_column is not None:
-      matches[best_match_input_column.name] = user_column.name
+    if best_match_user_column is not None:
+      matches[input_column.name] = best_match_user_column.name
 
   return matches
 

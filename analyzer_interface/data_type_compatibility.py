@@ -6,7 +6,7 @@ data_type_mapping_preference: dict[DataType, list[list[DataType]]] = {
   "float": [["float", "integer"]],
   "boolean": [["boolean"]],
   "datetime": [["datetime"]],
-  "identifier": [["identifier"], ["integer"], ["url"], ["text"]],
+  "identifier": [["identifier"], ["url", "datetime"], ["integer"], ["text"]],
   "url": [["url"]]
 }
 """
