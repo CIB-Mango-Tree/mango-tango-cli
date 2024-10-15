@@ -10,6 +10,12 @@ a = Analysis(
     pathex=['.'],    # Ensure all paths are correctly included
     binaries=[],
     datas=[
+        # version file, if defined
+        *(
+            [('VERSION', 'VERSION')]
+            if os.path.exists('VERSION') else []
+        ),
+
         # inquirer depends on readchar as a hidden dependency that requires package metadata
         *copy_metadata('readchar'),
 

@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+-?*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -14,6 +17,7 @@ jobs:
           - platform_name: Windows
             artifact_name: windows
             os: windows-2022
+            version_command: icacls "VERSION" /grant Everyone:F /T /C /Q
             move_command: move dist\mangotango.exe dist\mangotango_windows.exe
             sha_command: pwsh -c "Get-FileHash -Algorithm SHA1 dist\mangotango_windows.exe | Format-Table Hash -HideTableHeaders > dist\mangotango_windows.exe.sha1"
             list_command: dir dist
@@ -69,6 +73,22 @@ jobs:
 
       - name: Install PyInstaller
         run: pip install pyinstaller
+
+      - name: Print version string (for tag)
+        id: get_version_tag
+        if: ${{ github.ref_type == 'tag' }}
+        run: |
+          python -c "with open('VERSION', 'w', encoding='utf-8') as f: f.write('${{ github.ref_name }}')"
+
+      - name: Print version string (for branch)
+        id: get_version_branch
+        if: ${{ github.ref_type != 'tag' }}
+        run: |
+          python -c "with open('VERSION', 'w', encoding='utf-8') as f: f.write('${{ github.ref_name }}-${{ github.sha }}')"
+
+      - name: Modify version string permission
+        if: ${{ matrix.version_command }}
+        run: ${{ matrix.version_command }}
 
       - name: Build the executable
         run: |
