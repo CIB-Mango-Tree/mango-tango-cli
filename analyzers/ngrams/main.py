@@ -1,32 +1,27 @@
-import polars as pl
 import re
 
+import polars as pl
 
-AUTHOR__ID = "user_id"
-MESSAGE__ID = "message_id"
-MESSAGE__TEXT = "message_text"
-MESSAGE__NGRAM_COUNT = "count"
-NGRAM__ID = "ngram_id"
-NGRAM__WORDS = "words"
-NGRAM__LENGTH = "n"
+from .interface import (COL_AUTHOR_ID, COL_MESSAGE_ID, COL_MESSAGE_NGRAM_COUNT,
+                        COL_MESSAGE_TEXT, COL_NGRAM_ID, COL_NGRAM_LENGTH, COL_NGRAM_WORDS)
 
 
-def analyze_ngrams(df_input: pl.DataFrame):
-  df_input = df_input.filter(pl.col(MESSAGE__TEXT).is_not_null())
+def main(df_input: pl.DataFrame):
+  df_input = df_input.filter(pl.col(COL_MESSAGE_TEXT).is_not_null())
 
   def get_ngram_rows(ngrams_by_id: dict[str, int]):
     num_rows = df_input.height
     current_row = 0
     for row in df_input.iter_rows(named=True):
-      tokens = tokenize(row[MESSAGE__TEXT])
+      tokens = tokenize(row[COL_MESSAGE_TEXT])
       for ngram in ngrams(tokens, 3, 5):
         serialized_ngram = serialize_ngram(ngram)
         if serialized_ngram not in ngrams_by_id:
           ngrams_by_id[serialized_ngram] = len(ngrams_by_id)
         ngram_id = ngrams_by_id[serialized_ngram]
         yield {
-          MESSAGE__ID: row[MESSAGE__ID],
-          NGRAM__ID: ngram_id
+          COL_MESSAGE_ID: row[COL_MESSAGE_ID],
+          COL_NGRAM_ID: ngram_id
         }
       current_row = current_row + 1
       if current_row % 100 == 0:
@@ -39,20 +34,20 @@ def analyze_ngrams(df_input: pl.DataFrame):
 
   df_message_ngrams = (
     pl.DataFrame(get_ngram_rows(ngrams_by_id))
-      .group_by(MESSAGE__ID, NGRAM__ID)
-      .agg(pl.count().alias(MESSAGE__NGRAM_COUNT))
+      .group_by(COL_MESSAGE_ID, COL_NGRAM_ID)
+      .agg(pl.count().alias(COL_MESSAGE_NGRAM_COUNT))
   )
   df_ngrams = pl.DataFrame({
-    NGRAM__ID: list(ngrams_by_id.values()),
-    NGRAM__WORDS: list(ngrams_by_id.keys())
+    COL_NGRAM_ID: list(ngrams_by_id.values()),
+    COL_NGRAM_WORDS: list(ngrams_by_id.keys())
   }).with_columns([
-    pl.col(NGRAM__WORDS)
+    pl.col(COL_NGRAM_WORDS)
       .str.split(" ")
       .list.len()
-      .alias(NGRAM__LENGTH)
+      .alias(COL_NGRAM_LENGTH)
   ])
   df_message_authors = df_input.select(
-    [AUTHOR__ID, MESSAGE__ID])
+    [COL_AUTHOR_ID, COL_MESSAGE_ID])
 
   return {
     "message_ngrams": df_message_ngrams,

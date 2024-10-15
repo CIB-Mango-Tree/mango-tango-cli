@@ -1,81 +1,30 @@
-import csv
-import os
+from typing import Optional
 
 import polars as pl
 
-from preprocessing.series_semantic import infer_series_semantic
-from terminal_tools import prompts, wait_for_key, draw_box
-from terminal_tools.inception import Context
-from analyzers import all_analyzers
-from analyzer_interface import column_automap, UserInputColumn, AnalyzerInterface, InputColumn, get_data_type_compatibility_score
-from typing import Optional
+from analyzer_interface import (AnalyzerInterface, InputColumn,
+                                UserInputColumn, column_automap,
+                                get_data_type_compatibility_score)
+from analyzers import suite
+from storage import Storage
+from terminal_tools import (draw_box, prompts,
+                            wait_for_key)
+from terminal_tools.inception import TerminalContext
+
+from .utils import ProjectInstance, get_user_columns
+from .export_outputs import get_all_outputs, export_format_prompt, export_outputs_sequence
 
 
-def new_analysis(context: Context):
-  with context.nest(draw_box("1. Data Source", padding_lines=0)):
-    print("Select a file for your analysis")
-    selected_file = prompts.file_selector("Select a file")
-    if selected_file is None:
-      print("Canceled")
-      return wait_for_key(True)
-
-    print(f"Selected file: {selected_file}")
-    confirm_file = prompts.confirm("Is this correct?", default=True)
-    if not confirm_file:
-      print("Canceled")
-      return wait_for_key(True)
-
-    file_extension: str = os.path.splitext(selected_file)[1].lower()
-    if file_extension == ".csv":
-      try:
-        with context.nest("Reading CSV file..."):
-          print("Opening file...")
-          with open(selected_file, "r", encoding="utf8") as file:
-            dialect = csv.Sniffer().sniff(file.read(65536))
-
-          df = pl.read_csv(
-            selected_file,
-            separator=dialect.delimiter,
-            quote_char=dialect.quotechar,
-            ignore_errors=True,
-            has_header=True,
-            truncate_ragged_lines=True,
-          )
-      except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        wait_for_key(True)
-        return
-
-    else:
-      print(
-        f"Unsupported file type: {
-          file_extension or '(file with no extension)'}"
-      )
-      wait_for_key(True)
-      return
-
-  with context.nest(draw_box("2. Data preview", padding_lines=0)):
-    print(df)
-
-    user_columns = [
-      UserInputColumn(name=col, data_type=semantic.data_type)
-      for col in df.columns
-      if (semantic := infer_series_semantic(df[col])) is not None
-    ]
-
-    print("Inferred column semantics:")
-    for col in user_columns:
-      print(f"  {col.name}: {col.data_type}")
-    wait_for_key(True)
-
-  with context.nest(draw_box("3. Choose an analysis", padding_lines=0)):
+def new_analysis(context: TerminalContext, storage: Storage, project: ProjectInstance):
+  df = project.input
+  with context.nest(draw_box("Choose an analysis", padding_lines=0)):
     analyzer: Optional[AnalyzerInterface] = prompts.list_input(
       "Which analysis?",
       choices=[
-        ("Exit", None),
+        ("(Back)", None),
         *(
           (f"{analyzer.name} ({analyzer.short_description})", analyzer)
-          for analyzer in all_analyzers
+          for analyzer in suite.primary_anlyzers
         ),
       ],
     )
@@ -87,6 +36,7 @@ def new_analysis(context: Context):
     with context.nest(analyzer.long_description or analyzer.short_description):
       wait_for_key(True)
 
+    user_columns = get_user_columns(df)
     draft_column_mapping = column_automap(
       user_columns,
       analyzer.input.columns
@@ -154,26 +104,42 @@ def new_analysis(context: Context):
       return
 
     try:
-      result = analyzer.entry_point(
+      output_dfs: dict[str, pl.Dataframe] = analyzer.entry_point(
         df.select(
           pl.col(user_col).alias(input_col)
           for input_col, user_col in final_column_mapping.items()
         )
       )
 
-      for output in analyzer.outputs:
-        output_df = result[output.id]
-        print(f"Output: {output.name}")
-        print(output_df)
+      storage.save_project_primary_outputs(project.id, analyzer.id, output_dfs)
+      print("Base analysis finished")
 
-      os.makedirs("analysis_outputs", exist_ok=True)
-      for output in analyzer.outputs:
-        print(f"Saving {output.name} to 'analysis_outputs/{output.id}.csv'")
-        output_df: pl.DataFrame = result[output.id]
-        output_df.write_csv(f"analysis_outputs/{output.id}.csv")
-      print("Analysis results saved to 'analysis_outputs' folder")
+      for secondary in suite.find_secondary_analyzers(analyzer, autorun=True):
+        print("Running analysis: ", secondary.name)
+        secondary_output_dfs = secondary.entry_point(output_dfs)
+        storage.save_project_secondary_outputs(
+          project.id, analyzer.id, secondary.id, secondary_output_dfs)
+        print(f"Analysis {secondary.name} finished")
+
+      outputs = get_all_outputs(storage, project, analyzer)
+      print("")
+      print("You now have the option to export the following outputs:")
+      for output in outputs:
+        print(output.name)
+      print("")
+
+      export_format = export_format_prompt()
+      if export_format is None:
+        print("No problem. You can also export outputs later from the analysis menu.")
+        wait_for_key(True)
+      else:
+        export_outputs_sequence(
+          storage, project, analyzer, outputs, export_format
+        )
+
+      return analyzer
 
     except KeyboardInterrupt:
       print("Canceled")
-
-    wait_for_key(True)
+      wait_for_key(True)
+      return None

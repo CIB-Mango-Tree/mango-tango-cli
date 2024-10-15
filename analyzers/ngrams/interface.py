@@ -1,9 +1,17 @@
 from analyzer_interface import (AnalyzerInput, AnalyzerInterface,
                                 AnalyzerOutput, InputColumn, OutputColumn)
 
-from .main import (MESSAGE__ID, MESSAGE__TEXT,
-                   NGRAM__ID, NGRAM__LENGTH,
-                   NGRAM__WORDS, MESSAGE__NGRAM_COUNT, AUTHOR__ID, analyze_ngrams)
+COL_AUTHOR_ID = "user_id"
+COL_MESSAGE_ID = "message_id"
+COL_MESSAGE_TEXT = "message_text"
+COL_MESSAGE_NGRAM_COUNT = "count"
+COL_NGRAM_ID = "ngram_id"
+COL_NGRAM_WORDS = "words"
+COL_NGRAM_LENGTH = "n"
+
+OUTPUT_MESSAGE_NGRAMS = "message_ngrams"
+OUTPUT_NGRAM_DEFS = "ngrams"
+OUTPUT_MESSAGE_AUTHORS = "message_authors"
 
 interface = AnalyzerInterface(
   id="ngrams",
@@ -20,21 +28,21 @@ the corpus of text, and whether certain authors use these sequences more often.
   """,
   input=AnalyzerInput(columns=[
     InputColumn(
-      name=AUTHOR__ID,
+      name=COL_AUTHOR_ID,
       data_type="identifier",
       description="The unique identifier of the author of the message",
       name_hints=["author", "user", "poster", "username",
                   "screen name", "user name", "name", "email"]
     ),
     InputColumn(
-      name=MESSAGE__ID,
+      name=COL_MESSAGE_ID,
       data_type="identifier",
       description="The unique identifier of the message",
       name_hints=["post", "message", "comment",
                   "text", "retweet id", "tweet"]
     ),
     InputColumn(
-      name=MESSAGE__TEXT,
+      name=COL_MESSAGE_TEXT,
       data_type="text",
       description="The text content of the message",
       name_hints=["message", "text", "comment",
@@ -43,33 +51,32 @@ the corpus of text, and whether certain authors use these sequences more often.
   ]),
   outputs=[
     AnalyzerOutput(
-      id="message_ngrams",
+      id=OUTPUT_MESSAGE_NGRAMS,
       name="N-gram count per message",
       columns=[
-        OutputColumn(name=MESSAGE__ID, data_type="identifier"),
-        OutputColumn(name=NGRAM__ID, data_type="identifier"),
-        OutputColumn(name=MESSAGE__NGRAM_COUNT, data_type="integer")
+        OutputColumn(name=COL_MESSAGE_ID, data_type="identifier"),
+        OutputColumn(name=COL_NGRAM_ID, data_type="identifier"),
+        OutputColumn(name=COL_MESSAGE_NGRAM_COUNT, data_type="integer")
       ]
     ),
     AnalyzerOutput(
-      id="ngrams",
+      id=OUTPUT_NGRAM_DEFS,
       name="N-gram definitions",
       description="The word compositions of each unique n-gram",
       columns=[
-        OutputColumn(name=NGRAM__ID, data_type="identifier"),
-        OutputColumn(name=NGRAM__WORDS, data_type="text"),
-        OutputColumn(name=NGRAM__LENGTH, data_type="integer")
+        OutputColumn(name=COL_NGRAM_ID, data_type="identifier"),
+        OutputColumn(name=COL_NGRAM_WORDS, data_type="text"),
+        OutputColumn(name=COL_NGRAM_LENGTH, data_type="integer")
       ]
     ),
     AnalyzerOutput(
-      id="message_authors",
+      id=OUTPUT_MESSAGE_AUTHORS,
       name="Message authorship",
       description="Message authorship",
       columns=[
-        OutputColumn(name=AUTHOR__ID, data_type="identifier"),
-        OutputColumn(name=MESSAGE__ID, data_type="identifier")
+        OutputColumn(name=COL_AUTHOR_ID, data_type="identifier"),
+        OutputColumn(name=COL_MESSAGE_ID, data_type="identifier")
       ]
     )
-  ],
-  entry_point=analyze_ngrams
+  ]
 )

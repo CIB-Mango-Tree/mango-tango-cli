@@ -2,7 +2,8 @@ import os
 
 from inquirer import (
   confirm as inquirer_confirm,
-  list_input as inquirer_list_input
+  list_input as inquirer_list_input,
+  text as inquirer_text, checkbox as inquirer_checkbox
 )
 
 from .utils import clear_printed_lines
@@ -60,11 +61,25 @@ def list_input(message: str, **kwargs):
   return wrap_keyboard_interrupt(lambda: inquirer_list_input(message, **kwargs))
 
 
+def checkbox(message: str, **kwargs):
+  """
+  Wraps `inquirer`'s checkbox and catches KeyboardInterrupt
+  """
+  return wrap_keyboard_interrupt(lambda: inquirer_checkbox(message, **kwargs))
+
+
 def confirm(message: str, **kwargs):
   """
   Wraps `inquirer`'s confirm input and catches KeyboardInterrupt
   """
   return wrap_keyboard_interrupt(lambda: inquirer_confirm(message, **kwargs), False)
+
+
+def text(message: str, **kwargs):
+  """
+  Wraps `inquirer`'s text input and catches KeyboardInterrupt
+  """
+  return wrap_keyboard_interrupt(lambda: inquirer_text(message, **kwargs))
 
 
 def wrap_keyboard_interrupt(fn, fallback=None):

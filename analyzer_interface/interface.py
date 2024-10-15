@@ -1,9 +1,10 @@
 from typing import Callable, Literal, Optional
 
+import polars as pl
 from pydantic import BaseModel
 
 
-class AnalyzerInterface(BaseModel):
+class BaseAnalyzerInterface(BaseModel):
   id: str
   """
   The static ID for the analyzer that, with the version, uniquely identifies the
@@ -31,6 +32,8 @@ class AnalyzerInterface(BaseModel):
   A longer description of what the analyzer does that will be shown separately.
   """
 
+
+class AnalyzerInterface(BaseAnalyzerInterface):
   input: "AnalyzerInput"
   """
   Specifies the input data schema for the analyzer.
@@ -41,11 +44,47 @@ class AnalyzerInterface(BaseModel):
   Specifies the output data schema for the analyzer.
   """
 
-  entry_point: Callable
+
+class AnalyzerDeclaration(AnalyzerInterface):
   """
   The entry point should be a function that accepts the input dataframe and
   returns a dictionary of output dataframes
   """
+  entry_point: Callable[[pl.DataFrame], dict[str, pl.DataFrame]]
+
+  def __init__(self, interface: AnalyzerInterface, main: Callable):
+    super().__init__(**interface.model_dump(), entry_point=main)
+
+
+class SecondaryAnalyzerInterface(BaseAnalyzerInterface):
+  base_analyzer: AnalyzerInterface
+  """
+  The base analyzer that this secondary analyzer extends. The secondary
+  analyzer will process the outputs of this base analyzer.
+  """
+
+  autorun: bool = False
+  """
+  If `True`, the secondary analyzer will be run automatically after the base
+  analyzer runs.
+  """
+
+  outputs: list["AnalyzerOutput"]
+  """
+  Specifies the output data schema for the analyzer.
+  """
+
+
+class SecondaryAnalyzerDeclaration(SecondaryAnalyzerInterface):
+  entry_point: Callable[[dict[str, pl.DataFrame]], dict[str, pl.DataFrame]]
+  """
+  The entry point should be a function that accepts a dictionary of
+  the base analyzer's dataframes and returns a dictionary of its own
+  output dataframes.
+  """
+
+  def __init__(self, interface: SecondaryAnalyzerInterface, main: Callable):
+    super().__init__(**interface.model_dump(), entry_point=main)
 
 
 class AnalyzerInput(BaseModel):
