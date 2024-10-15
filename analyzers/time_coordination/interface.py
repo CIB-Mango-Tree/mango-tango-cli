@@ -21,6 +21,7 @@ interface = AnalyzerInterface(
   input=AnalyzerInput(columns=[
     InputColumn(
       name=COL_USER_ID,
+      human_readable_name="Message Author ID",
       data_type="identifier",
       description="The unique identifier of the author of the message",
       name_hints=["author", "user", "poster", "username",
@@ -28,6 +29,7 @@ interface = AnalyzerInterface(
     ),
     InputColumn(
       name=COL_TIMESTAMP,
+      human_readable_name="Message Timestamp",
       data_type="datetime",
       description="The timestamp of a message",
       name_hints=["time", "timestamp", "date", "ts"]

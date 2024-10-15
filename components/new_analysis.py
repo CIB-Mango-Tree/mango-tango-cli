@@ -17,9 +17,9 @@ from .export_outputs import get_all_outputs, export_format_prompt, export_output
 
 def new_analysis(context: TerminalContext, storage: Storage, project: ProjectInstance):
   df = project.input
-  with context.nest(draw_box("Choose an analysis", padding_lines=0)):
+  with context.nest(draw_box("Choose a test", padding_lines=0)):
     analyzer: Optional[AnalyzerInterface] = prompts.list_input(
-      "Which analysis?",
+      "Which test?",
       choices=[
         ("(Back)", None),
         *(
@@ -33,8 +33,21 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
     return
 
   with context.nest(draw_box(analyzer.name, padding_lines=0)):
-    with context.nest(analyzer.long_description or analyzer.short_description):
-      wait_for_key(True)
+    with context.nest("About this test"):
+
+      print("")
+      print(analyzer.long_description or analyzer.short_description)
+      print("")
+      print("The test requires these columns in the input data:")
+      print("")
+      for input_column in analyzer.input.columns:
+        print(f"** {input_column.human_readable_name_or_fallback()
+                    }" + f" ({input_column.data_type})")
+        print(input_column.description or "")
+        print("")
+
+      if not prompts.confirm("Do you want to proceed?", default=True):
+        return
 
     user_columns = get_user_columns(df)
     user_columns_by_name = {
@@ -58,7 +71,11 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
           selected_analyzer_column: Optional[InputColumn] = prompts.list_input(
             "Choose the column mapping to change",
             choices=[
-              (f"{input_column.name} -> {user_column or '(no mapping)'}", input_column)
+              (
+                f"{input_column.human_readable_name_or_fallback(
+                )} <- {user_column or '(no mapping)'}",
+                input_column
+              )
               for input_column in analyzer.input.columns
               if (user_column := draft_column_mapping.get(input_column.name, None)) or True
             ],
@@ -93,7 +110,7 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         # At this point, every column is mapped
         for input_column in analyzer.input.columns:
           user_column = draft_column_mapping.get(input_column.name, None)
-          print(f"{input_column.name} -> {user_column}")
+          print(f"{input_column.human_readable_name_or_fallback()} <- {user_column}")
 
         want_to_change_mapping = not prompts.confirm(
           "Are you happy with this mapping?",
@@ -118,14 +135,14 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
       output_dfs: dict[str, pl.Dataframe] = analyzer.entry_point(input_df)
 
       storage.save_project_primary_outputs(project.id, analyzer.id, output_dfs)
-      print("Base analysis finished")
+      print("Base analysis for the test finished")
 
       for secondary in suite.find_secondary_analyzers(analyzer, autorun=True):
-        print("Running analysis: ", secondary.name)
+        print("Running post-analysis: ", secondary.name)
         secondary_output_dfs = secondary.entry_point(output_dfs)
         storage.save_project_secondary_outputs(
           project.id, analyzer.id, secondary.id, secondary_output_dfs)
-        print(f"Analysis {secondary.name} finished")
+        print(f"Post-analysis {secondary.name} finished")
 
       outputs = get_all_outputs(storage, project, analyzer)
       print("")

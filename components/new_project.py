@@ -12,7 +12,7 @@ from .utils import ProjectInstance, input_preview
 
 def new_project(context: TerminalContext, storage: Storage):
   with context.nest(draw_box("1. Data Source", padding_lines=0)):
-    print("Select a file for your analysis")
+    print("Select a file for your dataset")
     selected_file = prompts.file_selector("Select a file")
     if selected_file is None:
       print("Canceled")
@@ -57,16 +57,16 @@ def new_project(context: TerminalContext, storage: Storage):
     input_preview(df)
     wait_for_key(True)
 
-  with context.nest(draw_box("3. Project Setup", padding_lines=0)):
-    print("Choose a project name. You can reload the project later.")
+  with context.nest(draw_box("3. Naming", padding_lines=0)):
+    print("Rename the dataset if you wish. This is how the dataset will appear when you try to load it again.")
     suggested_project_name = os.path.splitext(
       os.path.basename(selected_file))[0]
     project_name = prompts.text(
-      "Project name", default=suggested_project_name
+      "Name", default=suggested_project_name
     )
 
     project = storage.init_project(display_name=project_name, input=df)
-    print("Project created!")
+    print("Dataset successfully imported!")
     wait_for_key(True)
     return ProjectInstance(
       id=project.id,
