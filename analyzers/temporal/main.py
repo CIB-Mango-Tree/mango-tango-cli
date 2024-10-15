@@ -157,7 +157,7 @@ if __name__ == "__main__":
     df, datetime_col_name = load_csv(CSV__INPUT)
     df = process_datetime_feature_engineering(df, datetime_col_name)
 
-    TIME__INTERVAL__LENGTH = 60
+    TIME__INTERVAL__LENGTH = 30
     grouped_df = analyze_time_of_day(df, TIME__INTERVAL__LENGTH)
     plot_time_of_day_to_terminal(grouped_df, TIME__INTERVAL__LENGTH)
     plot_time_of_day_to_plotly(grouped_df, TIME__INTERVAL__LENGTH)
