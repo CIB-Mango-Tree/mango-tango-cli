@@ -159,6 +159,7 @@ class Storage:
           f"Storage version mismatch: expected {
             STORAGE_VERSION}, got {stored_version}"
         )
+    self.db.remove(q["class_"] == "version")
     self.db.insert({"class_": "version", "version": STORAGE_VERSION})
 
   def _find_unique_project_id(self, display_name: str):
