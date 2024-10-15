@@ -147,8 +147,12 @@ represent how the data is intended to be interpreted.
 
 class Column(BaseModel):
   name: str
+  human_readable_name: Optional[str] = None
   description: Optional[str] = None
   data_type: DataType
+
+  def human_readable_name_or_fallback(self):
+    return self.human_readable_name or self.name
 
 
 class InputColumn(Column):

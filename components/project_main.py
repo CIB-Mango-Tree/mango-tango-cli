@@ -10,12 +10,12 @@ from .utils import ProjectInstance
 
 def project_main(context: TerminalContext, storage: Storage, project: ProjectInstance):
   while True:
-    with context.nest(draw_box(f"CIB Mango Tree/Project: {project.display_name}", padding_lines=0)):
+    with context.nest(draw_box(f"CIB Mango Tree/Dataset: {project.display_name}", padding_lines=0)):
       action = prompts.list_input(
         "What would you like to do?",
         choices=[
-          ("New analysis", "new_analysis"),
-          ("Select an existing analysis", "select_analysis"),
+          ("New test", "new_analysis"),
+          ("View a previously run test", "select_analysis"),
           ("(Back)", None),
         ],
       )

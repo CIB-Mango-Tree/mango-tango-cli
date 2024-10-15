@@ -29,6 +29,7 @@ the corpus of text, and whether certain authors use these sequences more often.
   input=AnalyzerInput(columns=[
     InputColumn(
       name=COL_AUTHOR_ID,
+      human_readable_name="Message Author ID",
       data_type="identifier",
       description="The unique identifier of the author of the message",
       name_hints=["author", "user", "poster", "username",
@@ -36,6 +37,7 @@ the corpus of text, and whether certain authors use these sequences more often.
     ),
     InputColumn(
       name=COL_MESSAGE_ID,
+      human_readable_name="Unique Message ID",
       data_type="identifier",
       description="The unique identifier of the message",
       name_hints=["post", "message", "comment",
@@ -43,6 +45,7 @@ the corpus of text, and whether certain authors use these sequences more often.
     ),
     InputColumn(
       name=COL_MESSAGE_TEXT,
+      human_readable_name="Message Text",
       data_type="text",
       description="The text content of the message",
       name_hints=["message", "text", "comment",

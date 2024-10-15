@@ -1,6 +1,8 @@
 from terminal_tools import prompts, draw_box
 from terminal_tools.inception import TerminalContext
 from .new_project import new_project
+from .new_analysis import new_analysis
+from .analysis_main import analysis_main
 from .select_project import select_project
 from .project_main import project_main
 from storage import Storage
@@ -14,8 +16,8 @@ def main_menu(context: TerminalContext, storage: Storage):
       action = prompts.list_input(
         "What would you like to do?",
         choices=[
-          ("New project", "new_project"),
-          ("Load existing project", "load_project"),
+          ("Import dataset", "new_project"),
+          ("Load existing dataset", "load_project"),
           ("Exit", "exit"),
         ],
       )
@@ -26,17 +28,21 @@ def main_menu(context: TerminalContext, storage: Storage):
 
     if action == "new_project":
       with context.nest(
-        draw_box("CIB Mango Tree: New Project") +
+        draw_box("CIB Mango Tree: New Dataset") +
           "\n" + exit_instruction + "\n"
       ):
         project = new_project(context, storage)
+
       if project is not None:
+        analyzer = new_analysis(context, storage, project)
+        if analyzer is not None:
+          analysis_main(context, storage, project, analyzer)
         project_main(context, storage, project)
       continue
 
     if action == "load_project":
       with context.nest(
-        draw_box("CIB Mango Tree: Load Project") +
+        draw_box("CIB Mango Tree: Load Dataset") +
           "\n" + exit_instruction + "\n"
       ):
         project = select_project(context, storage)

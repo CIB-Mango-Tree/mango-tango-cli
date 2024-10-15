@@ -19,12 +19,12 @@ def select_analysis(context: TerminalContext, storage: Storage, project: Project
     key=lambda option: option[0]
   )
   if not analysis_options:
-    print("There are no analyses for this project")
+    print("No tests have been run on this dataset yet.")
     wait_for_key(True)
     return
 
   analyzer: Optional[AnalyzerDeclaration] = prompts.list_input(
-    "Choose an analysis to view",
+    "Choose a previously run test to view",
     choices=[
       ("(Back)", None),
       *analysis_options,
