@@ -129,7 +129,7 @@ class AnalyzerOutput(BaseModel):
 
 
 DataType = Literal[
-  "text", "integer", "float", "boolean", "datetime", "identifier", "url"
+  "text", "integer", "float", "boolean", "datetime", "identifier", "url", "time"
 ]
 """
 The semantic data type for a data column. This is not quite the same as
@@ -140,6 +140,7 @@ represent how the data is intended to be interpreted.
 - `integer` and `float` are meant to be manipulated arithmetically.
 - `boolean` is a binary value.
 - `datetime` represents time and are meant to be manipulated as time values.
+- `time` represents time within a day, not including the date information.
 - `identifier` is a unique identifier for a record. It is not expected to be manipulated in any way.
 - `url` is a string that represents a URL.
 """
