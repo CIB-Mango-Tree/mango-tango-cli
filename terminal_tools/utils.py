@@ -136,3 +136,52 @@ def is_wsl() -> bool:
       return 'microsoft' in f.read().lower()
   except FileNotFoundError:
     return False
+
+
+def print_ascii_table(rows: list[list[str]], *, header: list[str], min_widths: list[int] = []):
+  # Determine the max number of columns
+  max_columns = max([len(header), *(len(row) for row in rows)])
+
+  # Make the data/header/min widths all the same column count
+  def fill_row(row: list[str]):
+    return [*row, *([""] * (max_columns - len(row)))]
+  rows = list(fill_row(row) for row in rows)
+  header = fill_row(header)
+  min_widths = [*min_widths, *([0] * (max_columns - len(min_widths)))]
+
+  # Determine the width of each column by finding the longest item in each column
+  col_widths = [
+    max([*(len(str(item)) for item in col), min_widths[i]])
+    for i, col in enumerate(zip(*[header, *rows]))
+  ]
+
+  # Print the header
+  header_row = (
+    "│ " +
+    " │ ".join(
+      f"{header[i]:<{col_widths[i]}}" for i, _ in enumerate(header)) +
+    " │"
+  )
+
+  def border_row(left: str, middle: str, right: str):
+    return left + middle.join("─" * w for w in col_widths) + right
+
+  # top border
+  print(border_row("┌─", "─┬─", "─┐"))
+
+  print(header_row)
+
+  # separator
+  print(border_row("├─", "─┼─", "─┤"))
+
+  # Print each row of data
+  for row in rows:
+    print(
+      "│ " +
+      " │ ".join(
+        f"{str(row[i]):<{col_widths[i]}}" for i, _ in enumerate(header)) +
+      " │"
+    )
+
+  # bottom border
+  print(border_row("└─", "─┴─", "─┘"))

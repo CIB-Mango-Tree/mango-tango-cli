@@ -1,5 +1,6 @@
 import os
 
+from typing import Optional
 from inquirer import (
   confirm as inquirer_confirm,
   list_input as inquirer_list_input,
@@ -68,11 +69,11 @@ def checkbox(message: str, **kwargs):
   return wrap_keyboard_interrupt(lambda: inquirer_checkbox(message, **kwargs))
 
 
-def confirm(message: str, **kwargs):
+def confirm(message: str, *, cancel_fallback: Optional[bool] = False, **kwargs):
   """
   Wraps `inquirer`'s confirm input and catches KeyboardInterrupt
   """
-  return wrap_keyboard_interrupt(lambda: inquirer_confirm(message, **kwargs), False)
+  return wrap_keyboard_interrupt(lambda: inquirer_confirm(message, **kwargs), cancel_fallback)
 
 
 def text(message: str, **kwargs):

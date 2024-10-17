@@ -9,6 +9,14 @@ class UserInputColumn(BaseUserInputColumn):
   semantic: SeriesSemantic
   data: pl.Series
 
+  def head(self, n: int = 10):
+    return UserInputColumn(
+      name=self.name,
+      data_type=self.data_type,
+      semantic=self.semantic,
+      data=self.data.head(n)
+    )
+
   def apply_semantic_transform(self):
     return self.semantic.try_convert(self.data)
 
