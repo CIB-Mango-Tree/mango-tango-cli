@@ -1,44 +1,5 @@
 from itertools import accumulate, repeat
 import random
-#import polars as pl
-
-#DATA = '~/data/cib/full-stream-up-to-08-10-2022.csv'
-
-#df = pl.read_csv(DATA)
-
-#df.head()
-
-# let's look at the hashtags column
-#this_column = "hashtags"
-#null_char = "[]"
-#df = df.with_columns(
-#    pl.when(pl.col(this_column) == null_char)
-#    .then(None)
-#    .otherwise(pl.col(this_column))
-#    .name.keep()
-#)
-
-
-#df = df.with_columns(
-#    pl.col(this_column).str.strip_chars("[]")
-#    .str.replace_all("'", "")
-#    .str.replace_all(" ", "")
-#    .str.split(",")
-#)
-
-# convert 
-
-#df.select(pl.col(this_column)).filter(
-#        pl.col(this_column)
-#    .is_not_null()).sample(15)
-
-#df.select(this_column)
-
-#def dotprod(a, b):
-#    return sum([a[i]*b[i] for i in range(len(a))])
-
-#base_rate = 30
-
 
 # Let's pretend we parsed a dataset with these hashtags
 hobby_hashtags = {
@@ -104,8 +65,22 @@ hobby_hashtags = {
 
 # function for gini coefficient
 def gini(x, weights: list = None):
+    """
+    Parameters
+    ----------
+    x : list[str]
+        List of values for which to compute the Gini coefficient
+    weights : list, optional
+        Weights for the values, by default None
 
-    sorted_x = sorted(x)
+    Returns
+    -------
+    float
+        Gini coefficient
+    """
+    x_counts = [x.count(e) for e in set(x)]
+
+    sorted_x = sorted(x_counts)
     n = len(sorted_x)
     cumx = list(accumulate(sorted_x))
 
@@ -145,6 +120,7 @@ def simulate_toy_cib(base_rate: int, injection_hashtags: dict, n_days: int, min_
     vocab = list(base.keys())
 
     return tweets_dict, vocab
+
 
 # now get the counts and compute the gini coefficient
 def gini_cib(tweets: dict, vocab: list):
