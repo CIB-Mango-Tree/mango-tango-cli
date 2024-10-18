@@ -15,6 +15,6 @@ suite = AnalyzerSuite(
     ngrams_web,
     time_coordination,
     temporal,
-    temporal_barplot
+    temporal_barplot,
     hashtags,
   ])
