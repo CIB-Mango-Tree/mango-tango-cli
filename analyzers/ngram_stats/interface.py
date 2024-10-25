@@ -16,7 +16,6 @@ interface = SecondaryAnalyzerInterface(
   name="Copy-Pasta Detector",
   short_description="",
   base_analyzer=ngrams_interface,
-  autorun=True,
   outputs=[
     AnalyzerOutput(
       id=OUTPUT_NGRAM_STATS,

@@ -1,8 +1,8 @@
-from storage import Storage
+from storage import Storage, Project
 from terminal_tools import draw_box, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
-from .utils import ProjectInstance, input_preview
+from .utils import input_preview
 
 
 def select_project(context: TerminalContext, storage: Storage):
@@ -26,12 +26,12 @@ def select_project(context: TerminalContext, storage: Storage):
         return None
 
     with context.nest(draw_box(f"Project: {project.display_name}", padding_lines=0)):
-      df = storage.load_project_input(project.id)
-      input_preview(df)
+      df = storage.load_project_input(project.id, n_records=100)
+      table_stats = storage.get_project_input_stats(project.id)
+      input_preview(df, table_stats)
       confirm_load = prompts.confirm("Load this project?", default=True)
       if confirm_load:
-        return ProjectInstance(
+        return Project(
           id=project.id,
-          display_name=project.display_name,
-          input=df
+          display_name=project.display_name
         )

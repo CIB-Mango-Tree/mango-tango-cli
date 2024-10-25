@@ -1,15 +1,14 @@
 from analyzer_interface import AnalyzerInterface
-from storage import Storage
+from storage import Project, Storage
 from terminal_tools import (draw_box, open_directory_explorer, prompts,
                             wait_for_key)
 from terminal_tools.inception import TerminalContext
 
 from .analysis_web_server import analysis_web_server
 from .export_outputs import export_outputs
-from .utils import ProjectInstance
 
 
-def analysis_main(context: TerminalContext, storage: Storage, project: ProjectInstance, analyzer: AnalyzerInterface):
+def analysis_main(context: TerminalContext, storage: Storage, project: Project, analyzer: AnalyzerInterface):
   while True:
     with context.nest(draw_box(f"Analysis: {analyzer.name}", padding_lines=0)):
       action = prompts.list_input(

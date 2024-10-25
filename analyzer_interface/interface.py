@@ -1,8 +1,6 @@
-from typing import Any, Callable, Literal, Optional
+from typing import Literal, Optional
 
-import polars as pl
 from pydantic import BaseModel
-from dash import Dash
 
 
 class BaseAnalyzerInterface(BaseModel):
@@ -34,81 +32,6 @@ class BaseAnalyzerInterface(BaseModel):
   """
 
 
-class AnalyzerInterface(BaseAnalyzerInterface):
-  input: "AnalyzerInput"
-  """
-  Specifies the input data schema for the analyzer.
-  """
-
-  outputs: list["AnalyzerOutput"]
-  """
-  Specifies the output data schema for the analyzer.
-  """
-
-
-class AnalyzerDeclaration(AnalyzerInterface):
-  """
-  The entry point should be a function that accepts the input dataframe and
-  returns a dictionary of output dataframes
-  """
-  entry_point: Callable[[pl.DataFrame], dict[str, pl.DataFrame]]
-
-  def __init__(self, interface: AnalyzerInterface, main: Callable):
-    super().__init__(**interface.model_dump(), entry_point=main)
-
-
-class SecondaryAnalyzerInterface(BaseAnalyzerInterface):
-  base_analyzer: AnalyzerInterface
-  """
-  The base analyzer that this secondary analyzer extends. The secondary
-  analyzer will process the outputs of this base analyzer.
-  """
-
-  autorun: bool = False
-  """
-  If `True`, the secondary analyzer will be run automatically after the base
-  analyzer runs.
-  """
-
-  outputs: list["AnalyzerOutput"]
-  """
-  Specifies the output data schema for the analyzer.
-  """
-
-
-class SecondaryAnalyzerDeclaration(SecondaryAnalyzerInterface):
-  entry_point: Callable[[dict[str, pl.DataFrame]], dict[str, pl.DataFrame]]
-  """
-  The entry point should be a function that accepts a dictionary of
-  the base analyzer's dataframes and returns a dictionary of its own
-  output dataframes.
-  """
-
-  def __init__(self, interface: SecondaryAnalyzerInterface, main: Callable):
-    super().__init__(**interface.model_dump(), entry_point=main)
-
-
-class WebPresenterInterface(BaseAnalyzerInterface):
-  base_analyzer: AnalyzerInterface
-  """
-  The base analyzer that this secondary analyzer extends. The secondary
-  analyzer will process the outputs of this base analyzer.
-  """
-
-
-class WebPresenterDeclaration(WebPresenterInterface):
-  factory: Callable[[dict[str, pl.DataFrame], Dash], None]
-  """
-  The factory function that creates a Dash app for the web presenter. It receives
-  a dictionary of the base analyzer's dataframes and returns a Dash app.
-  """
-
-  server_name: str
-
-  def __init__(self, interface: WebPresenterInterface, factory: Callable, name: str):
-    super().__init__(**interface.model_dump(), factory=factory, server_name=name)
-
-
 class AnalyzerInput(BaseModel):
   columns: list["InputColumn"]
 
@@ -126,6 +49,49 @@ class AnalyzerOutput(BaseModel):
   description: Optional[str] = None
 
   columns: list["OutputColumn"]
+
+
+class AnalyzerInterface(BaseAnalyzerInterface):
+  input: AnalyzerInput
+  """
+  Specifies the input data schema for the analyzer.
+  """
+
+  outputs: list["AnalyzerOutput"]
+  """
+  Specifies the output data schema for the analyzer.
+  """
+
+  kind: Literal["primary"] = "primary"
+
+
+class DerivedAnalyzerInterface(BaseAnalyzerInterface):
+  base_analyzer: AnalyzerInterface
+  """
+  The base analyzer that this secondary analyzer extends. This is always a primary
+  analyzer. If your module depends on other secondary analyzers (which must have
+  the same base analyzer), you can specify them in the `depends_on` field.
+  """
+
+  depends_on: list["SecondaryAnalyzerInterface"] = []
+  """
+  A dictionary of secondary analyzers that must be run before the current analyzer
+  secondary analyzer is run. These secondary analyzers must have the same
+  primary base.
+  """
+
+
+class SecondaryAnalyzerInterface(DerivedAnalyzerInterface):
+  outputs: list[AnalyzerOutput]
+  """
+  Specifies the output data schema for the analyzer.
+  """
+
+  kind: Literal["secondary"] = "secondary"
+
+
+class WebPresenterInterface(DerivedAnalyzerInterface):
+  kind: Literal["web"] = "web"
 
 
 DataType = Literal[

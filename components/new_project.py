@@ -1,13 +1,13 @@
-import csv
 import os
+import tempfile
+from typing import Optional
 
-import polars as pl
-
-from storage import Storage
+from importing import IImporterPreload, Importer, importers
+from storage import Project, Storage
 from terminal_tools import draw_box, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
-from .utils import ProjectInstance, input_preview
+from .utils import input_preview
 
 
 def new_project(context: TerminalContext, storage: Storage):
@@ -19,43 +19,38 @@ def new_project(context: TerminalContext, storage: Storage):
       return wait_for_key(True)
 
     print(f"Selected file: {selected_file}")
-    confirm_file = prompts.confirm("Is this correct?", default=True)
-    if not confirm_file:
-      print("Canceled")
+    import_spec: Optional[tuple[Importer, IImporterPreload]] = None
+    import_errors: list[tuple[Importer, Exception]] = []
+
+    for importer in importers:
+      if not importer.sniff(selected_file):
+        continue
+
+      try:
+        preload = importer.preload(selected_file, 100)
+        import_spec = (importer, preload)
+      except Exception as e:
+        import_errors.append((importer, e))
+        continue
+
+      print(f"Input loaded as a {importer.name} file.")
+      break
+
+    if import_spec is None:
+      print("We couldn't open this file. It is likely that the file is not supported.")
+      if prompts.confirm("Would you like to see the errors?", default=False):
+        for importer, e in import_errors:
+          print(f"Error trying attempting to load as {importer.name}: {e}")
       return wait_for_key(True)
 
-    file_extension: str = os.path.splitext(selected_file)[1].lower()
-    if file_extension == ".csv":
-      try:
-        with context.nest("Reading CSV file..."):
-          print("Opening file...")
-          with open(selected_file, "r", encoding="utf8") as file:
-            dialect = csv.Sniffer().sniff(file.read(65536))
-
-          df = pl.read_csv(
-            selected_file,
-            separator=dialect.delimiter,
-            quote_char=dialect.quotechar,
-            ignore_errors=True,
-            has_header=True,
-            truncate_ragged_lines=True,
-          )
-      except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        wait_for_key(True)
-        return
-
-    else:
-      print(
-        f"Unsupported file type: {
-          file_extension or '(file with no extension)'}"
-      )
-      wait_for_key(True)
-      return
+    importer, preload = import_spec
 
   with context.nest(draw_box("2. Data preview", padding_lines=0)):
-    input_preview(df)
-    wait_for_key(True)
+    input_preview(preload.get_preview_dataframe())
+    confirm_preview = prompts.confirm("Is this correct?", default=True)
+    if not confirm_preview:
+      print("Canceled")
+      return wait_for_key(True)
 
   with context.nest(draw_box("3. Naming", padding_lines=0)):
     print("Rename the dataset if you wish. This is how the dataset will appear when you try to load it again.")
@@ -65,11 +60,16 @@ def new_project(context: TerminalContext, storage: Storage):
       "Name", default=suggested_project_name
     )
 
-    project = storage.init_project(display_name=project_name, input=df)
+  with context.nest(draw_box("4. Import", padding_lines=0)):
+    print("Please wait as the dataset is imported...")
+    with tempfile.NamedTemporaryFile() as temp_file:
+      importer.import_data(selected_file, temp_file.name, preload)
+      project = storage.init_project(
+        display_name=project_name, input_temp_file=temp_file.name)
+
     print("Dataset successfully imported!")
     wait_for_key(True)
-    return ProjectInstance(
+    return Project(
       id=project.id,
-      display_name=project.display_name,
-      input=df
+      display_name=project.display_name
     )

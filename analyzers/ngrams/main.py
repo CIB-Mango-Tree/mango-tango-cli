@@ -2,11 +2,19 @@ import re
 
 import polars as pl
 
+from analyzer_interface.context import PrimaryAnalyzerContext
+
 from .interface import (COL_AUTHOR_ID, COL_MESSAGE_ID, COL_MESSAGE_NGRAM_COUNT,
-                        COL_MESSAGE_TEXT, COL_NGRAM_ID, COL_NGRAM_LENGTH, COL_NGRAM_WORDS)
+                        COL_MESSAGE_TEXT, COL_NGRAM_ID, COL_NGRAM_LENGTH,
+                        COL_NGRAM_WORDS, OUTPUT_MESSAGE_AUTHORS,
+                        OUTPUT_MESSAGE_NGRAMS, OUTPUT_NGRAM_DEFS)
 
 
-def main(df_input: pl.DataFrame):
+def main(context: PrimaryAnalyzerContext):
+  input_reader = context.input()
+  df_input = input_reader.preprocess(
+    pl.read_parquet(input_reader.parquet_path)
+  )
   df_input = df_input.filter(pl.col(COL_MESSAGE_TEXT).is_not_null())
 
   def get_ngram_rows(ngrams_by_id: dict[str, int]):
@@ -32,28 +40,31 @@ def main(df_input: pl.DataFrame):
 
   ngrams_by_id: dict[str, int] = {}
 
-  df_message_ngrams = (
+  (
     pl.DataFrame(get_ngram_rows(ngrams_by_id))
       .group_by(COL_MESSAGE_ID, COL_NGRAM_ID)
       .agg(pl.count().alias(COL_MESSAGE_NGRAM_COUNT))
+      .write_parquet(context.output(OUTPUT_MESSAGE_NGRAMS).parquet_path)
   )
-  df_ngrams = pl.DataFrame({
-    COL_NGRAM_ID: list(ngrams_by_id.values()),
-    COL_NGRAM_WORDS: list(ngrams_by_id.keys())
-  }).with_columns([
-    pl.col(COL_NGRAM_WORDS)
-      .str.split(" ")
-      .list.len()
-      .alias(COL_NGRAM_LENGTH)
-  ])
-  df_message_authors = df_input.select(
-    [COL_AUTHOR_ID, COL_MESSAGE_ID])
 
-  return {
-    "message_ngrams": df_message_ngrams,
-    "ngrams": df_ngrams,
-    "message_authors": df_message_authors
-  }
+  (
+    pl.DataFrame({
+      COL_NGRAM_ID: list(ngrams_by_id.values()),
+      COL_NGRAM_WORDS: list(ngrams_by_id.keys())
+    })
+      .with_columns([
+        pl.col(COL_NGRAM_WORDS)
+          .str.split(" ")
+          .list.len()
+          .alias(COL_NGRAM_LENGTH)
+      ])
+      .write_parquet(context.output(OUTPUT_NGRAM_DEFS).parquet_path)
+  )
+
+  (
+    df_input.select([COL_AUTHOR_ID, COL_MESSAGE_ID])
+      .write_parquet(context.output(OUTPUT_MESSAGE_AUTHORS).parquet_path)
+  )
 
 
 def tokenize(input: str) -> list[str]:

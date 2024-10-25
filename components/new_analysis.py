@@ -6,17 +6,19 @@ from analyzer_interface import (AnalyzerInterface, InputColumn,
                                 UserInputColumn, column_automap,
                                 get_data_type_compatibility_score)
 from analyzers import suite
-from storage import Storage
+from context import PrimaryAnalyzerContext, SecondaryAnalyzerContext, InputColumnProvider
+from storage import Project, Storage
 from terminal_tools import draw_box, print_ascii_table, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
 from .export_outputs import (export_format_prompt, export_outputs_sequence,
                              get_all_outputs)
-from .utils import ProjectInstance, get_user_columns
+from .utils import get_user_columns
+import tempfile
+from traceback import format_exc
 
 
-def new_analysis(context: TerminalContext, storage: Storage, project: ProjectInstance):
-  df = project.input
+def new_analysis(context: TerminalContext, storage: Storage, project: Project):
   with context.nest(draw_box("Choose a test", padding_lines=0)):
     analyzer: Optional[AnalyzerInterface] = prompts.list_input(
       "Which test?",
@@ -47,7 +49,8 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         print(input_column.description or "")
         print("")
 
-      user_columns = get_user_columns(df)
+      sample_project_df = storage.load_project_input(project.id, n_records=100)
+      user_columns = get_user_columns(sample_project_df)
       user_columns_by_name = {
         user_column.name: user_column for user_column in user_columns
       }
@@ -160,30 +163,39 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
     with context.nest("Analysis") as run_scope:
       is_export_started = False
       try:
-        print("Preparing input data for the test...")
-        input_df = pl.DataFrame({
-          input_col:
-            user_columns_by_name
-              .get(user_col)
-              .apply_semantic_transform()
-          for input_col, user_col in final_column_mapping.items()
-        })
-
-        run_scope.refresh()
         print("Starting base analysis for the test...")
-        output_dfs: dict[str, pl.Dataframe] = analyzer.entry_point(input_df)
+        with tempfile.TemporaryDirectory() as temp_dir:
+          analyzer_context = PrimaryAnalyzerContext(
+            project_id=project.id,
+            primary_analyzer=analyzer,
+            store=storage,
+            temp_dir=temp_dir,
+            input_columns={
+              analyzer_column_name: InputColumnProvider(
+                user_column_name=user_column_name,
+                semantic=user_columns_by_name[user_column_name].semantic
+              )
+              for analyzer_column_name, user_column_name
+              in final_column_mapping.items()
+            }
+          )
+          analyzer_context.prepare()
+          analyzer.entry_point(analyzer_context)
 
-        run_scope.refresh()
-        print("Saving analysis outputs...")
-        storage.save_project_primary_outputs(
-          project.id, analyzer.id, output_dfs)
-
-        for secondary in suite.find_secondary_analyzers(analyzer, autorun=True):
+        for secondary in suite.find_toposorted_secondary_analyzers(analyzer):
           run_scope.refresh()
           print("Running post-analysis: ", secondary.name)
-          secondary_output_dfs = secondary.entry_point(output_dfs)
-          storage.save_project_secondary_outputs(
-            project.id, analyzer.id, secondary.id, secondary_output_dfs)
+
+          with tempfile.TemporaryDirectory() as temp_dir:
+            secondary_context = SecondaryAnalyzerContext(
+              project_id=project.id,
+              primary_analyzer=analyzer,
+              secondary_analyzer=secondary,
+              temp_dir=temp_dir,
+              store=storage
+            )
+            secondary_context.prepare()
+            secondary.entry_point(secondary_context)
 
         run_scope.refresh()
         outputs = get_all_outputs(storage, project, analyzer)
@@ -191,7 +203,7 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         print("")
         print("You now have the option to export the following outputs:")
         for output in outputs:
-          print(output.name)
+          print("- " + output.name)
         print("")
 
         export_format = export_format_prompt()
@@ -217,9 +229,15 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         return None
 
       except Exception as e:
+        traceback = format_exc()
         run_scope.refresh()
         print("An error occurred during the analysis:")
         print(e)
+        print("")
+
+        if prompts.confirm("Would you like to see the full error traceback?", default=False):
+          print(traceback)
+
         print("")
         print(
           "Help us improve this tool by reporting this error on our GitHub repository:"
@@ -227,4 +245,5 @@ def new_analysis(context: TerminalContext, storage: Storage, project: ProjectIns
         print("https://github.com/CIB-Mango-Tree/mango-tango-cli")
         print("")
         wait_for_key(True)
+
         return None

@@ -2,13 +2,20 @@ from datetime import timedelta
 
 import polars as pl
 
+from analyzer_interface.context import PrimaryAnalyzerContext
+
 from .interface import (COL_TIMESTAMP, COL_USER_ID, OUTPUT_COL_FREQ,
                         OUTPUT_COL_USER1, OUTPUT_COL_USER2, OUTPUT_TABLE)
 
 
-def main(df_input: pl.DataFrame):
+def main(context: PrimaryAnalyzerContext):
   window_size = timedelta(minutes=15)
   step_size = timedelta(minutes=5)
+
+  input_reader = context.input()
+  df_input = input_reader.preprocess(
+    pl.read_parquet(input_reader.parquet_path)
+  )
   df = df_input.sort(COL_TIMESTAMP)
   df = df.lazy().set_sorted(COL_TIMESTAMP)
 
@@ -40,4 +47,4 @@ def main(df_input: pl.DataFrame):
 
   # Materialize lazy processing
   df = df.collect()
-  return {OUTPUT_TABLE: df}
+  df.write_parquet(context.output(OUTPUT_TABLE).parquet_path)

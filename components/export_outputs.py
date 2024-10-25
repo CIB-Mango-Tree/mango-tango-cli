@@ -7,15 +7,12 @@ from pydantic import BaseModel
 from analyzer_interface import (AnalyzerInterface, AnalyzerOutput,
                                 SecondaryAnalyzerInterface)
 from analyzers import suite
-from storage import Storage, SupportedOutputExtension
-from terminal_tools import (open_directory_explorer, prompts,
-                            wait_for_key)
+from storage import Project, Storage, SupportedOutputExtension
+from terminal_tools import open_directory_explorer, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
-from .utils import ProjectInstance
 
-
-def export_outputs(context: TerminalContext, storage: Storage, project: ProjectInstance, analyzer: AnalyzerInterface, *, all=False):
+def export_outputs(context: TerminalContext, storage: Storage, project: Project, analyzer: AnalyzerInterface, *, all=False):
   with context.nest("[Export Output]\n\n") as scope:
     outputs = sorted(
       get_all_outputs(storage, project, analyzer),
@@ -59,7 +56,7 @@ def export_outputs(context: TerminalContext, storage: Storage, project: ProjectI
                             selected_outputs, format)
 
 
-def export_outputs_sequence(storage: Storage, project: ProjectInstance, analyzer: AnalyzerInterface, selected_outputs: list["Output"], format: SupportedOutputExtension):
+def export_outputs_sequence(storage: Storage, project: Project, analyzer: AnalyzerInterface, selected_outputs: list["Output"], format: SupportedOutputExtension):
   print("Beginning export...")
   for selected_output in selected_outputs:
     exported_path = selected_output.export(
@@ -96,14 +93,14 @@ def export_format_prompt():
   )
 
 
-def get_all_outputs(storage: Storage, project: ProjectInstance, analyzer: AnalyzerInterface):
+def get_all_outputs(storage: Storage, project: Project, analyzer: AnalyzerInterface):
   return [
     *(Output(output=output, secondary=None)
       for output in analyzer.outputs),
     *(
       Output(output=output, secondary=secondary)
       for secondary_id in storage.list_project_secondary_analyses(project.id, analyzer.id)
-      if (secondary := suite.get_secondary_analyzer(analyzer.id, secondary_id)) is not None
+      if (secondary := suite.get_secondary_analyzer_by_id(analyzer.id, secondary_id)) is not None
       for output in secondary.outputs
     )
   ]

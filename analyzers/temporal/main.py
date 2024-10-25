@@ -2,6 +2,8 @@ from datetime import timedelta
 
 import polars as pl
 
+from analyzer_interface.context import PrimaryAnalyzerContext
+
 from .interface import (INPUT_COL_TIMESTAMP, OUTPUT_COL_POST_COUNT,
                         OUTPUT_COL_TIME_INTERVAL_END,
                         OUTPUT_COL_TIME_INTERVAL_START,
@@ -10,9 +12,12 @@ from .interface import (INPUT_COL_TIMESTAMP, OUTPUT_COL_POST_COUNT,
 HARD_CODED_INTERVAL = timedelta(hours=1)  # For now
 
 
-def main(df: pl.DataFrame):
+def main(context: PrimaryAnalyzerContext):
   # Once we are able to parameterize analyzers, this can be come a parameter.
   interval = HARD_CODED_INTERVAL
+
+  input_reader = context.input()
+  df = input_reader.preprocess(pl.read_parquet(input_reader.parquet_path))
 
   # Generate intervals by truncating the post timestamp to the nearest
   # specified interval within a day. This contains the start timestamp of
@@ -50,47 +55,6 @@ def main(df: pl.DataFrame):
     OUTPUT_COL_TIME_INTERVAL_END
   ]).sort(OUTPUT_COL_TIME_INTERVAL_START)
 
-  return {OUTPUT_TABLE_INTERVAL_COUNT: df_output}
-
-
-# import numpy as np
-# import plotly.express as px
-
-# def plot_time_of_day_to_plotly(grouped_df: pl.DataFrame, TIME__INTERVAL__LENGTH: int, save_fig=False, save_method='html', filename=f'frequency_bar_graph'):
-
-
-# """
-# Plot the grouped Polars dataframe on Plotly with the option to export as HTML, PNG, etc.
-# """
-
-#     # Create the Plotly bar graph
-#     fig = px.bar(grouped_df.to_pandas(),
-#             x='time_interval',
-#             y='count',
-#             orientation='v',
-#             title=f'Count of Records by Time of Day ({
-#                 TIME__INTERVAL__LENGTH}-min intervals)',
-#     labels={'time_interval': f'{
-#         TIME__INTERVAL__LENGTH}-Minute Interval Label', 'count': 'Count'},
-# )
-
-#     # Show the plot
-#     # fig.show() # TODO: Allow for graph export and/or upload to HTML
-
-#     if save_fig:
-#   if save_method == 'html':
-#   fig.write_html(f"{filename}.html")
-#   if save_method == 'png':
-#   fig.write_image(f"{filename}.png")
-
-
-# if __name__ == "__main__":
-# CSV__INPUT= 'reddit_vm'
-#     df, datetime_col_name = load_csv(CSV__INPUT)
-#     df = process_datetime_feature_engineering(df, datetime_col_name)
-
-#     TIME__INTERVAL__LENGTH = 30
-#     grouped_df = analyze_time_of_day(df, TIME__INTERVAL__LENGTH)
-#     plot_time_of_day_to_terminal(grouped_df, TIME__INTERVAL__LENGTH)
-#     plot_time_of_day_to_plotly(grouped_df, TIME__INTERVAL__LENGTH)
-#     # save_df_to_csv(grouped_df, 'time_interval_analysis') # TODO: if user elects to export to CSV
+  df_output.write_parquet(
+    context.output(OUTPUT_TABLE_INTERVAL_COUNT).parquet_path
+  )

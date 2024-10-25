@@ -2,14 +2,12 @@ from typing import Optional
 
 from analyzer_interface import AnalyzerDeclaration
 from analyzers import suite
-from storage import Storage
+from storage import Storage, Project
 from terminal_tools import prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
-from .utils import ProjectInstance
 
-
-def select_analysis(context: TerminalContext, storage: Storage, project: ProjectInstance):
+def select_analysis(context: TerminalContext, storage: Storage, project: Project):
   analysis_options: Optional[tuple[str, AnalyzerDeclaration]] = sorted(
     [
       (analyzer.name, analyzer)
