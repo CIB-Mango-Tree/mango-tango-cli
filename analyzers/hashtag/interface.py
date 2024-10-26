@@ -41,7 +41,7 @@ TBA
   outputs=[
     AnalyzerOutput(
       id=OUTPUT_GINI,
-      name="gini_coef_over_time",
+      name="Gini coefficient over time",
       columns=[
         OutputColumn(name=OUTPUT_COL_TIMESPAN, data_type="datetime"),
         OutputColumn(name=OUTPUT_COL_GINI, data_type="float"),
