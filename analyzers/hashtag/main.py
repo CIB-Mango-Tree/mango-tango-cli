@@ -2,9 +2,6 @@ import polars as pl
 from itertools import accumulate
 from .interface import (COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS)
 
-DATA = '~/data/cib/full-stream-up-to-08-10-2022.csv'
-
-df = pl.read_csv(DATA, try_parse_dates=True)
 
 # let's look at the hashtags column
 COLS_ALL = [COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS]
