@@ -64,27 +64,7 @@ hobby_hashtags = {
 }
 
 # function for gini coefficient
-def gini(x, weights: list = None):
-    """
-    Parameters
-    ----------
-    x : list[str]
-        List of values for which to compute the Gini coefficient
-    weights : list, optional
-        Weights for the values, by default None
 
-    Returns
-    -------
-    float
-        Gini coefficient
-    """
-    x_counts = [x.count(e) for e in set(x)]
-
-    sorted_x = sorted(x_counts)
-    n = len(sorted_x)
-    cumx = list(accumulate(sorted_x))
-
-    return (n + 1 - 2 * sum(cumx) / cumx[-1]) / n
 
 def simulate_toy_cib(base_rate: int, injection_hashtags: dict, n_days: int, min_tweets:int, max_tweets: int, seed: int = 54321):
 
