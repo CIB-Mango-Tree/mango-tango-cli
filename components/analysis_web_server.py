@@ -5,23 +5,18 @@ from flask import Flask, render_template
 
 from analyzer_interface import AnalyzerInterface
 from analyzers import suite
-from storage import Storage
+from storage import Storage, Project
 from terminal_tools import wait_for_key
 from terminal_tools.inception import TerminalContext
 from pathlib import Path
 
-from .utils import ProjectInstance
+from context import WebPresenterContext
 from waitress import serve
 import os
+import tempfile
 
 
-def analysis_web_server(context: TerminalContext, storage: Storage, project: ProjectInstance, analyzer: AnalyzerInterface):
-  primary_outputs = {
-    output.id: storage.load_project_primary_output(
-      project.id, analyzer.id, output.id)
-    for output in analyzer.outputs
-  }
-
+def analysis_web_server(context: TerminalContext, storage: Storage, project: Project, analyzer: AnalyzerInterface):
   # These paths need to be resolved at runtime in order to run with
   # pyinstaller bundle
   parent_path = str(Path(__file__).resolve().parent)
@@ -37,6 +32,7 @@ def analysis_web_server(context: TerminalContext, storage: Storage, project: Pro
   )
   web_server.logger.disabled = True
 
+  temp_dirs: list[tempfile.TemporaryDirectory] = []
   for presenter in web_presenters:
     dash_app = Dash(
       presenter.server_name,
@@ -44,7 +40,18 @@ def analysis_web_server(context: TerminalContext, storage: Storage, project: Pro
       url_base_pathname=f"/{presenter.id}/",
       external_stylesheets=['/static/dashboard_base.css']
     )
-    presenter.factory(primary_outputs, dash_app)
+    temp_dir = tempfile.TemporaryDirectory()
+    presenter_context = WebPresenterContext(
+      project_id=project.id,
+      primary_analyzer=analyzer,
+      web_presenter=presenter,
+      store=storage,
+      temp_dir=temp_dir.name,
+      dash_app=dash_app
+    )
+    temp_dirs.append(temp_dir)
+
+    presenter.factory(presenter_context)
 
   @web_server.route('/')
   def index():
@@ -77,3 +84,5 @@ def analysis_web_server(context: TerminalContext, storage: Storage, project: Pro
     server_log.disabled = original_disabled
     print("Web server stopped")
     wait_for_key(True)
+    for temp_dir in temp_dirs:
+      temp_dir.cleanup()

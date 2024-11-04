@@ -1,14 +1,13 @@
-from storage import Storage
+from storage import Storage, Project
 from terminal_tools import draw_box, prompts
 from terminal_tools.inception import TerminalContext
 
 from .analysis_main import analysis_main
 from .new_analysis import new_analysis
 from .select_analysis import select_analysis
-from .utils import ProjectInstance
 
 
-def project_main(context: TerminalContext, storage: Storage, project: ProjectInstance):
+def project_main(context: TerminalContext, storage: Storage, project: Project):
   while True:
     with context.nest(draw_box(f"CIB Mango Tree/Dataset: {project.display_name}", padding_lines=0)):
       action = prompts.list_input(

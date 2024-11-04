@@ -1,11 +1,11 @@
 import os
 import re
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional
 
 import platformdirs
 import polars as pl
 from filelock import FileLock
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from tinydb import Query, TinyDB
 
 STORAGE_VERSION = 1
@@ -32,7 +32,7 @@ class Storage:
     with self._lock_database():
       self._ensure_database_version()
 
-  def init_project(self, *, display_name: str, input: pl.DataFrame):
+  def init_project(self, *, display_name: str, input_temp_file: str):
     with self._lock_database():
       project_id = self._find_unique_project_id(display_name)
       project = Project(id=project_id, display_name=display_name)
@@ -41,8 +41,7 @@ class Storage:
     project_dir = self._get_project_path(project_id)
     os.makedirs(project_dir, exist_ok=True)
 
-    input_path = self._get_project_input_path(project_id)
-    input.write_parquet(input_path)
+    os.rename(input_temp_file, self._get_project_input_path(project_id))
     return project
 
   def list_projects(self):
@@ -53,9 +52,14 @@ class Storage:
       key=lambda project: project.display_name
     )
 
-  def load_project_input(self, project_id: str):
+  def load_project_input(self, project_id: str, *, n_records: Optional[int] = None):
     input_path = self._get_project_input_path(project_id)
-    return pl.read_parquet(input_path)
+    return pl.read_parquet(input_path, n_rows=n_records)
+
+  def get_project_input_stats(self, project_id: str):
+    input_path = self._get_project_input_path(project_id)
+    num_rows = pl.scan_parquet(input_path).select(pl.count()).collect().item()
+    return TableStats(num_rows=num_rows)
 
   def save_project_primary_outputs(self, project_id: str, analyzer_id: str, outputs: dict[str, pl.DataFrame]):
     for output_id, output_df in outputs.items():
@@ -98,14 +102,24 @@ class Storage:
     return output_path
 
   def load_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str):
-    output_path = os.path.join(self._get_project_primary_output_root_path(
-      project_id, analyzer_id), f"{output_id}.parquet")
+    output_path = self.get_primary_output_parquet_path(
+      project_id, analyzer_id, output_id)
     return pl.read_parquet(output_path)
 
+  def get_primary_output_parquet_path(self, project_id: str, analyzer_id: str, output_id: str):
+    return os.path.join(
+      self._get_project_primary_output_root_path(project_id, analyzer_id),
+      f"{output_id}.parquet"
+    )
+
   def load_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str):
-    output_path = os.path.join(self._get_project_secondary_output_root_path(
-      project_id, analyzer_id, secondary_id), f"{output_id}.parquet")
+    output_path = self.get_secondary_output_parquet_path(
+      project_id, analyzer_id, secondary_id, output_id)
     return pl.read_parquet(output_path)
+
+  def get_secondary_output_parquet_path(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str):
+    return os.path.join(self._get_project_secondary_output_root_path(
+        project_id, analyzer_id, secondary_id), f"{output_id}.parquet")
 
   def export_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, extension: SupportedOutputExtension):
     output_df = self.load_project_primary_output(
@@ -134,7 +148,7 @@ class Storage:
     except FileNotFoundError:
       return []
 
-  def list_project_secondary_analyses(self, project_id: str, analyzer_id: str):
+  def list_project_secondary_analyses(self, project_id: str, analyzer_id: str) -> list[str]:
     project_path = self._get_project_path(project_id)
     try:
       analyzers = os.listdir(os.path.join(
@@ -189,6 +203,9 @@ class Storage:
   def _get_project_exports_root_path(self, project_id: str, analyzer_id: str):
     return os.path.join(self._get_project_path(project_id), "analyzers", analyzer_id, "exports")
 
+  def _get_web_presenter_state_path(self, project_id: str, analyzer_id: str, presenter_id: str):
+    return os.path.join(self._get_project_path(project_id), "analyzers", analyzer_id, "web_presenters", presenter_id, "state")
+
   def _lock_database(self):
     """
     Locks the database to prevent concurrent access, in case multiple instances
@@ -211,3 +228,7 @@ class Storage:
       if validator(candidate):
         return candidate
       i += 1
+
+
+class TableStats(BaseModel):
+  num_rows: int

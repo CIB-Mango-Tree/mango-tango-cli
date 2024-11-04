@@ -158,13 +158,13 @@ def print_ascii_table(rows: list[list[str]], *, header: list[str], min_widths: l
   # Print the header
   header_row = (
     "│ " +
-    " │ ".join(
+    " ┆ ".join(
       f"{header[i]:<{col_widths[i]}}" for i, _ in enumerate(header)) +
     " │"
   )
 
-  def border_row(left: str, middle: str, right: str):
-    return left + middle.join("─" * w for w in col_widths) + right
+  def border_row(left: str, middle: str, right: str, char: str = "─"):
+    return left + middle.join(char * w for w in col_widths) + right
 
   # top border
   print(border_row("┌─", "─┬─", "─┐"))
@@ -172,13 +172,13 @@ def print_ascii_table(rows: list[list[str]], *, header: list[str], min_widths: l
   print(header_row)
 
   # separator
-  print(border_row("├─", "─┼─", "─┤"))
+  print(border_row("╞═", "═╪═", "═╡", "═"))
 
   # Print each row of data
   for row in rows:
     print(
       "│ " +
-      " │ ".join(
+      " ┆ ".join(
         f"{str(row[i]):<{col_widths[i]}}" for i, _ in enumerate(header)) +
       " │"
     )
