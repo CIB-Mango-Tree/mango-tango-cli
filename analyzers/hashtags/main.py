@@ -1,6 +1,11 @@
 import polars as pl
 from itertools import accumulate
-from .interface import (COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS)
+from .interface import (
+    COL_AUTHOR_ID,
+    COL_TIME,
+    COL_HASHTAGS,
+    OUTPUT_GINI
+)
 from collections import Counter
 from analyzer_interface.context import PrimaryAnalyzerContext
 
@@ -73,4 +78,4 @@ def main(context: PrimaryAnalyzerContext):
     print("Output preview:")
     print(df_agg.head())
 
-    return {"gini_coef_over_time": df_agg}
+    return {OUTPUT_GINI: df_agg}
