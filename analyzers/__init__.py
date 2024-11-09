@@ -6,7 +6,7 @@ from .ngram_web import ngrams_web
 from .time_coordination import time_coordination
 from .temporal import temporal
 from .temporal_barplot import temporal_barplot
-from .hashtag import hashtags
+from .hashtags import hashtags
 
 suite = AnalyzerSuite(
   all_analyzers=[
