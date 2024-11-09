@@ -2,6 +2,7 @@ import polars as pl
 from itertools import accumulate
 from .interface import (COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS)
 from collections import Counter
+from analyzer_interface.context import PrimaryAnalyzerContext
 
 # let's look at the hashtags column
 COLS_ALL = [COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS]
@@ -29,7 +30,12 @@ def gini(x):
     return (n + 1 - 2 * sum(cumx) / cumx[-1]) / n
 
 
-def main(df_input: pl.DataFrame):
+def main(context: PrimaryAnalyzerContext):
+
+    input_reader = context.input()
+    df_input = input_reader.preprocess(
+        pl.read_parquet(input_reader.parquet_path)
+    )
 
     # assign None to messages with no hashtags
     df_input = df_input.with_columns(
