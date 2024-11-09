@@ -1,7 +1,7 @@
 import polars as pl
 from itertools import accumulate
 from .interface import (COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS)
-
+from collections import Counter
 
 # let's look at the hashtags column
 COLS_ALL = [COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS]
@@ -20,7 +20,7 @@ def gini(x):
     float
         Gini coefficient
     """
-    x_counts = [x.count(e) for e in set(x)]
+    x_counts = Counter(x).values()
 
     sorted_x = sorted(x_counts)
     n = len(sorted_x)
@@ -56,7 +56,7 @@ def main(df_input: pl.DataFrame):
         .group_by_dynamic(COL_TIME, every="1h") # this could be a parameter
         .agg(
             pl.col(COL_HASHTAGS).explode().alias(COL_HASHTAGS),
-            pl.col(COL_HASHTAGS).count().alias("count"),
+            pl.col(COL_HASHTAGS).explode().count().alias("count"),
             pl.col(COL_HASHTAGS).explode().map_elements(
                 lambda x: gini(x.to_list()), 
                 return_dtype=pl.Float32,
