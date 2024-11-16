@@ -8,6 +8,8 @@ COL_HASHTAGS = "hashtags"
 OUTPUT_GINI = "gini_coef"
 OUTPUT_COL_TIMESPAN = "time_span"
 OUTPUT_COL_GINI = "gini"
+OUTPUT_COL_COUNT = "count"
+OUTPUT_COL_HASHTAGS = COL_HASHTAGS
 
 interface = AnalyzerInterface(
   id="hashtags",
