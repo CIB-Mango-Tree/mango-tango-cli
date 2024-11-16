@@ -69,8 +69,8 @@ def main(context: PrimaryAnalyzerContext):
         .sort(COL_TIME)
         .group_by_dynamic(COL_TIME, every="1h") # this could be a parameter
         .agg(
-            pl.col(COL_HASHTAGS).explode().alias(COL_HASHTAGS),
-            pl.col(COL_HASHTAGS).explode().count().alias("count"),
+            pl.col(COL_HASHTAGS).explode().alias(OUTPUT_COL_HASHTAGS),
+            pl.col(COL_HASHTAGS).explode().count().alias(OUTPUT_COL_COUNT),
             pl.col(COL_HASHTAGS).explode().map_elements(
                 lambda x: gini(x.to_list()), 
                 return_dtype=pl.Float32,
