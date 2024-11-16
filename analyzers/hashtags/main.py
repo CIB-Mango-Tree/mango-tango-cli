@@ -74,7 +74,7 @@ def main(context: PrimaryAnalyzerContext):
             pl.col(COL_HASHTAGS).explode().map_elements(
                 lambda x: gini(x.to_list()), 
                 return_dtype=pl.Float32,
-                returns_scalar=True).alias("gini"),
+                returns_scalar=True).alias(OUTPUT_COL_GINI),
             )
     )
 
