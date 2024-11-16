@@ -27,6 +27,10 @@ def file_selector(
   """
   current_path = os.path.realpath(initial_path)
 
+  if os.name == "nt":
+    drives = [f"{chr(drive)}:" for drive in range(65, 91) if os.path.exists(f"{chr(drive)}:")]
+    drive_choices = [(drive, drive) for drive in drives]
+
   def is_dir(entry: str):
     return os.path.isdir(os.path.join(current_path, entry))
 
@@ -39,7 +43,19 @@ def file_selector(
             for entry in sorted(os.listdir(current_path))
         ),
     ]
+    
+    # Add change drive to the list of choices if on Windows
+    if os.name == "nt":
+      cur_drive = os.path.splitdrive(current_path)[0]
+      choices.insert(0, (f"[Change Drive (current - {cur_drive})]", 'change_drive'))
+
     selected_entry = list_input(message, choices=choices)
+    
+    if selected_entry == 'change_drive':
+      selected_drive = list_input("Select a drive:", choices=drive_choices)
+      current_path = selected_entry = f"{selected_drive}\\"
+      # clear the prompted lines
+      clear_printed_lines(len(drives)+1)
 
     # inquirer will show up to 14 lines including the header
     # we have one line for the current path to rewrite
