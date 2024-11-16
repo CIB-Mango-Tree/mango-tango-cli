@@ -44,15 +44,18 @@ def file_selector(
         ),
     ]
     
-    # Add change drive to the list of choices if on Windows
+    # Add change drive option to the list of choices if on Windows
     if os.name == "nt":
       cur_drive = os.path.splitdrive(current_path)[0]
       choices.insert(0, (f"[Change Drive (current - {cur_drive})]", 'change_drive'))
 
     selected_entry = list_input(message, choices=choices)
     
-    if selected_entry == 'change_drive':
+    if selected_entry is not None and selected_entry == 'change_drive':
       selected_drive = list_input("Select a drive:", choices=drive_choices)
+      if selected_drive is None:
+        return None
+      
       current_path = selected_entry = f"{selected_drive}\\"
       # clear the prompted lines
       clear_printed_lines(len(drives)+1)
