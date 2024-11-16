@@ -4,7 +4,10 @@ from .interface import (
     COL_AUTHOR_ID,
     COL_TIME,
     COL_HASHTAGS,
-    OUTPUT_GINI
+    OUTPUT_GINI,
+    OUTPUT_COL_COUNT,
+    OUTPUT_COL_GINI,
+    OUTPUT_COL_HASHTAGS
 )
 from collections import Counter
 from analyzer_interface.context import PrimaryAnalyzerContext
