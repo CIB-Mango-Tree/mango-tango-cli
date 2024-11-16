@@ -78,4 +78,4 @@ def main(context: PrimaryAnalyzerContext):
     print("Output preview:")
     print(df_agg.head())
 
-    return {OUTPUT_GINI: df_agg}
+    df_agg.write_parquet(context.output(OUTPUT_GINI).parquet_path)
