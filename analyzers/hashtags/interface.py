@@ -45,6 +45,8 @@ TBA
       columns=[
         OutputColumn(name=OUTPUT_COL_TIMESPAN, data_type="datetime"),
         OutputColumn(name=OUTPUT_COL_GINI, data_type="float"),
+        OutputColumn(name=OUTPUT_COL_COUNT, data_type="integer"),
+        OutputColumn(name=OUTPUT_COL_HASHTAGS, data_type="text")
       ]
     )
   ]
