@@ -1,5 +1,9 @@
 import os
 
+from ctypes import windll
+from string import ascii_uppercase
+
+
 from typing import Optional
 from inquirer import (
   confirm as inquirer_confirm,
@@ -8,6 +12,28 @@ from inquirer import (
 )
 
 from .utils import clear_printed_lines
+
+def get_drives():
+  
+    """
+    Returns a list of the logically assigned drives on a windows system.
+    
+    Args:
+        None
+        
+    Returns:
+        list: A list of drive letters available and accessible on the system.
+    """
+  
+    drives = []
+    bitmask = windll.kernel32.GetLogicalDrives()
+    
+    for letter in ascii_uppercase:
+        if bitmask & 1:
+            drives.append(letter+":")
+        bitmask >>= 1
+
+    return drives
 
 
 def file_selector(
@@ -28,7 +54,7 @@ def file_selector(
   current_path = os.path.realpath(initial_path)
 
   if os.name == "nt":
-    drives = [f"{chr(drive)}:" for drive in range(65, 91) if os.path.exists(f"{chr(drive)}:")]
+    drives = get_drives()
     drive_choices = [(drive, drive) for drive in drives]
 
   def is_dir(entry: str):
