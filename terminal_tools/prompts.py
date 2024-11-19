@@ -9,6 +9,32 @@ from inquirer import (
 
 from .utils import clear_printed_lines
 
+if os.name == "nt":
+  from ctypes import windll
+  from string import ascii_uppercase
+
+def get_drives():
+  
+  """
+  Returns a list of the logically assigned drives on a windows system.
+  
+  Args:
+      None
+      
+  Returns:
+      list: A list of drive letters available and accessible on the system.
+  """
+
+  drives = []
+  bitmask = windll.kernel32.GetLogicalDrives()
+  
+  for letter in ascii_uppercase:
+      if bitmask & 1:
+          drives.append(letter+":")
+      bitmask >>= 1
+
+  return drives
+
 
 def file_selector(
   message: str = "select a file", *,
@@ -27,6 +53,10 @@ def file_selector(
   """
   current_path = os.path.realpath(initial_path)
 
+  if os.name == "nt":
+    drives = get_drives()
+    drive_choices = [(drive, drive) for drive in drives]
+
   def is_dir(entry: str):
     return os.path.isdir(os.path.join(current_path, entry))
 
@@ -39,7 +69,22 @@ def file_selector(
             for entry in sorted(os.listdir(current_path))
         ),
     ]
+    
+    # Add change drive option to the list of choices if on Windows
+    if os.name == "nt":
+      cur_drive = os.path.splitdrive(current_path)[0]
+      choices.insert(0, (f"[Change Drive (current - {cur_drive})]", 'change_drive'))
+
     selected_entry = list_input(message, choices=choices)
+    
+    if selected_entry is not None and selected_entry == 'change_drive':
+      selected_drive = list_input("Select a drive:", choices=drive_choices)
+      if selected_drive is None:
+        return None
+      
+      current_path = selected_entry = f"{selected_drive}\\"
+      # clear the prompted lines
+      clear_printed_lines(len(drives)+1)
 
     # inquirer will show up to 14 lines including the header
     # we have one line for the current path to rewrite
