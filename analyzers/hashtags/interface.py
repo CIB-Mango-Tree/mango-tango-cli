@@ -17,7 +17,19 @@ interface = AnalyzerInterface(
   name="hashtags",
   short_description="Computes the gini coefficient over hashtag usage",
   long_description="""
-TBA
+    Analysis of hashtags measures the extent of online coordination among social media users
+    by looking at how the usage of hashtags in messages changes over time. Specificaly,
+    it measures whether certain hashtags are being used more frequently than others (i.e. trending).
+
+    The intuition behind the analysis is that the users on social media, if coordinated by
+    an event, will converge on using a few hasthags more frequently than others
+    (e.g. #worldcup at the time when a soccer world cup starts). The (in)equality in
+    the distritution of hasthags can be taken as evidence of coordination and is quantified
+    using the Gini coefficient (see: https://ourworldindata.org/what-is-the-gini-coefficient).
+
+    The results of this test can be used in confirmatory analyses to measure
+    the extent of coordination in large datasets collected from social media platforms around
+    specific events/timepoints that are hypothesized to have been coordinated.
   """,
   input=AnalyzerInput(columns=[
     InputColumn(
