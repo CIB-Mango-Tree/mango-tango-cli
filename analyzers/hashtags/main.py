@@ -38,12 +38,25 @@ def gini(x):
     return (n + 1 - 2 * sum(cumx) / cumx[-1]) / n
 
 
+# TEMPORARY: check if real of test context
+def check_analyzer_context(context: PrimaryAnalyzerContext):
+
+    if type(context).__name__ == "AnalyzerContextDummy":
+
+        df_input = context.get_test_df() 
+    
+    else:
+        input_reader = context.input()
+        df_input = input_reader.preprocess(
+            pl.read_parquet(input_reader.parquet_path)
+        )   
+
+    return df_input
+
+
 def main(context: PrimaryAnalyzerContext):
 
-    input_reader = context.input()
-    df_input = input_reader.preprocess(
-        pl.read_parquet(input_reader.parquet_path)
-    )
+    df_input = check_analyzer_context(context)
 
     # assign None to messages with no hashtags
     df_input = df_input.with_columns(
