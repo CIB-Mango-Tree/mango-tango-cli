@@ -113,7 +113,16 @@ def main(context: SecondaryAnalyzerContext):
         COL_NGRAM_LENGTH,
         COL_NGRAM_TOTAL_REPS,
         COL_NGRAM_DISTINCT_POSTER_COUNT,
-        COL_MESSAGE_NGRAM_COUNT
-      ], descending=True)
+        COL_MESSAGE_NGRAM_COUNT,
+        COL_AUTHOR_ID,
+        COL_MESSAGE_SURROGATE_ID
+      ], descending=[
+        True,
+        True,
+        True,
+        True,
+        False,
+        False
+      ])
       writer.write_table(df_output.to_arrow())
   print("Done writing full report.")
