@@ -5,8 +5,9 @@ import polars as pl
 from analyzer_interface.context import PrimaryAnalyzerContext
 
 from .interface import (COL_AUTHOR_ID, COL_MESSAGE_ID, COL_MESSAGE_NGRAM_COUNT,
-                        COL_MESSAGE_TEXT, COL_NGRAM_ID, COL_NGRAM_LENGTH,
-                        COL_NGRAM_WORDS, OUTPUT_MESSAGE_AUTHORS,
+                        COL_MESSAGE_SURROGATE_ID, COL_MESSAGE_TEXT,
+                        COL_MESSAGE_TIMESTAMP, COL_NGRAM_ID, COL_NGRAM_LENGTH,
+                        COL_NGRAM_WORDS, OUTPUT_MESSAGE,
                         OUTPUT_MESSAGE_NGRAMS, OUTPUT_NGRAM_DEFS)
 
 
@@ -15,7 +16,15 @@ def main(context: PrimaryAnalyzerContext):
   df_input = input_reader.preprocess(
     pl.read_parquet(input_reader.parquet_path)
   )
-  df_input = df_input.filter(pl.col(COL_MESSAGE_TEXT).is_not_null())
+  df_input = df_input.filter(
+    pl.col(COL_MESSAGE_TEXT).is_not_null() &
+    (pl.col(COL_MESSAGE_TEXT) != "") &
+    pl.col(COL_AUTHOR_ID).is_not_null() &
+    (pl.col(COL_AUTHOR_ID) != "")
+  )
+  df_input = df_input.with_columns(
+    (pl.int_range(pl.len()) + 1).alias(COL_MESSAGE_SURROGATE_ID)
+  )
 
   def get_ngram_rows(ngrams_by_id: dict[str, int]):
     num_rows = df_input.height
@@ -28,7 +37,7 @@ def main(context: PrimaryAnalyzerContext):
           ngrams_by_id[serialized_ngram] = len(ngrams_by_id)
         ngram_id = ngrams_by_id[serialized_ngram]
         yield {
-          COL_MESSAGE_ID: row[COL_MESSAGE_ID],
+          COL_MESSAGE_SURROGATE_ID: row[COL_MESSAGE_SURROGATE_ID],
           COL_NGRAM_ID: ngram_id
         }
       current_row = current_row + 1
@@ -42,7 +51,7 @@ def main(context: PrimaryAnalyzerContext):
 
   (
     pl.DataFrame(get_ngram_rows(ngrams_by_id))
-      .group_by(COL_MESSAGE_ID, COL_NGRAM_ID)
+      .group_by(COL_MESSAGE_SURROGATE_ID, COL_NGRAM_ID)
       .agg(pl.count().alias(COL_MESSAGE_NGRAM_COUNT))
       .write_parquet(context.output(OUTPUT_MESSAGE_NGRAMS).parquet_path)
   )
@@ -62,8 +71,9 @@ def main(context: PrimaryAnalyzerContext):
   )
 
   (
-    df_input.select([COL_AUTHOR_ID, COL_MESSAGE_ID])
-      .write_parquet(context.output(OUTPUT_MESSAGE_AUTHORS).parquet_path)
+    df_input.select(
+      [COL_MESSAGE_SURROGATE_ID, COL_MESSAGE_ID, COL_MESSAGE_TEXT, COL_AUTHOR_ID, COL_MESSAGE_TIMESTAMP])
+      .write_parquet(context.output(OUTPUT_MESSAGE).parquet_path)
   )
 
 
