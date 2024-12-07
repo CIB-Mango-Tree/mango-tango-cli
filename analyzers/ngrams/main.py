@@ -9,6 +9,7 @@ from .interface import (COL_AUTHOR_ID, COL_MESSAGE_ID, COL_MESSAGE_NGRAM_COUNT,
                         COL_MESSAGE_TIMESTAMP, COL_NGRAM_ID, COL_NGRAM_LENGTH,
                         COL_NGRAM_WORDS, OUTPUT_MESSAGE,
                         OUTPUT_MESSAGE_NGRAMS, OUTPUT_NGRAM_DEFS)
+from terminal_tools import ProgressReporter
 
 
 def main(context: PrimaryAnalyzerContext):
@@ -16,65 +17,69 @@ def main(context: PrimaryAnalyzerContext):
   df_input = input_reader.preprocess(
     pl.read_parquet(input_reader.parquet_path)
   )
-  df_input = df_input.with_columns(
-    (pl.int_range(pl.len()) + 1).alias(COL_MESSAGE_SURROGATE_ID)
-  )
-  df_input = df_input.filter(
-    pl.col(COL_MESSAGE_TEXT).is_not_null() &
-    (pl.col(COL_MESSAGE_TEXT) != "") &
-    pl.col(COL_AUTHOR_ID).is_not_null() &
-    (pl.col(COL_AUTHOR_ID) != "")
-  )
+  with ProgressReporter("Preprocessing messages"):
+    df_input = df_input.with_columns(
+      (pl.int_range(pl.len()) + 1).alias(COL_MESSAGE_SURROGATE_ID)
+    )
+    df_input = df_input.filter(
+      pl.col(COL_MESSAGE_TEXT).is_not_null() &
+      (pl.col(COL_MESSAGE_TEXT) != "") &
+      pl.col(COL_AUTHOR_ID).is_not_null() &
+      (pl.col(COL_AUTHOR_ID) != "")
+    )
 
-  def get_ngram_rows(ngrams_by_id: dict[str, int]):
-    num_rows = df_input.height
-    current_row = 0
-    for row in df_input.iter_rows(named=True):
-      tokens = tokenize(row[COL_MESSAGE_TEXT])
-      for ngram in ngrams(tokens, 3, 5):
-        serialized_ngram = serialize_ngram(ngram)
-        if serialized_ngram not in ngrams_by_id:
-          ngrams_by_id[serialized_ngram] = len(ngrams_by_id)
-        ngram_id = ngrams_by_id[serialized_ngram]
-        yield {
-          COL_MESSAGE_SURROGATE_ID: row[COL_MESSAGE_SURROGATE_ID],
-          COL_NGRAM_ID: ngram_id
-        }
-      current_row = current_row + 1
-      if current_row % 100 == 0:
-        print(
-          current_row, "/", num_rows, "rows processed; found ",
-          len(ngrams_by_id), "ngrams", end="\r"
-        )
+  with ProgressReporter("Generating n-grams") as progress:
+    def get_ngram_rows(ngrams_by_id: dict[str, int]):
+      nonlocal progress
+      num_rows = df_input.height
+      current_row = 0
+      for row in df_input.iter_rows(named=True):
+        tokens = tokenize(row[COL_MESSAGE_TEXT])
+        for ngram in ngrams(tokens, 3, 5):
+          serialized_ngram = serialize_ngram(ngram)
+          if serialized_ngram not in ngrams_by_id:
+            ngrams_by_id[serialized_ngram] = len(ngrams_by_id)
+          ngram_id = ngrams_by_id[serialized_ngram]
+          yield {
+            COL_MESSAGE_SURROGATE_ID: row[COL_MESSAGE_SURROGATE_ID],
+            COL_NGRAM_ID: ngram_id
+          }
+        current_row = current_row + 1
+        if current_row % 100 == 0:
+          progress.update(current_row / num_rows)
 
-  ngrams_by_id: dict[str, int] = {}
+    ngrams_by_id: dict[str, int] = {}
+    df_ngram_instances = pl.DataFrame(get_ngram_rows(ngrams_by_id))
 
-  (
-    pl.DataFrame(get_ngram_rows(ngrams_by_id))
-      .group_by(COL_MESSAGE_SURROGATE_ID, COL_NGRAM_ID)
-      .agg(pl.count().alias(COL_MESSAGE_NGRAM_COUNT))
-      .write_parquet(context.output(OUTPUT_MESSAGE_NGRAMS).parquet_path)
-  )
+  with ProgressReporter("Computing per-message n-gram statistics"):
+    (
+      pl.DataFrame(df_ngram_instances)
+        .group_by(COL_MESSAGE_SURROGATE_ID, COL_NGRAM_ID)
+        .agg(pl.count().alias(COL_MESSAGE_NGRAM_COUNT))
+        .write_parquet(context.output(OUTPUT_MESSAGE_NGRAMS).parquet_path)
+    )
 
-  (
-    pl.DataFrame({
-      COL_NGRAM_ID: list(ngrams_by_id.values()),
-      COL_NGRAM_WORDS: list(ngrams_by_id.keys())
-    })
-      .with_columns([
-        pl.col(COL_NGRAM_WORDS)
-          .str.split(" ")
-          .list.len()
-          .alias(COL_NGRAM_LENGTH)
-      ])
-      .write_parquet(context.output(OUTPUT_NGRAM_DEFS).parquet_path)
-  )
+  with ProgressReporter("Outputting n-gram definitions"):
+    (
+      pl.DataFrame({
+        COL_NGRAM_ID: list(ngrams_by_id.values()),
+        COL_NGRAM_WORDS: list(ngrams_by_id.keys())
+      })
+        .with_columns([
+          pl.col(COL_NGRAM_WORDS)
+            .str.split(" ")
+            .list.len()
+            .alias(COL_NGRAM_LENGTH)
+        ])
+        .write_parquet(context.output(OUTPUT_NGRAM_DEFS).parquet_path)
+    )
 
-  (
-    df_input.select(
-      [COL_MESSAGE_SURROGATE_ID, COL_MESSAGE_ID, COL_MESSAGE_TEXT, COL_AUTHOR_ID, COL_MESSAGE_TIMESTAMP])
-      .write_parquet(context.output(OUTPUT_MESSAGE).parquet_path)
-  )
+  with ProgressReporter("Outputting messages"):
+    (
+      df_input.select(
+        [COL_MESSAGE_SURROGATE_ID, COL_MESSAGE_ID, COL_MESSAGE_TEXT, COL_AUTHOR_ID, COL_MESSAGE_TIMESTAMP])
+        .write_parquet(context.output(OUTPUT_MESSAGE).parquet_path)
+    )
 
 
 def tokenize(input: str) -> list[str]:
