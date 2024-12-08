@@ -8,6 +8,7 @@ from ..ngrams.interface import (COL_AUTHOR_ID, COL_MESSAGE_ID,
                                 COL_NGRAM_LENGTH, COL_NGRAM_WORDS, COL_MESSAGE_SURROGATE_ID)
 
 COL_NGRAM_TOTAL_REPS = "total_reps"
+COL_NGRAM_REPS_PER_USER = "reps_per_user"
 COL_NGRAM_DISTINCT_POSTER_COUNT = "distinct_posters"
 
 OUTPUT_NGRAM_STATS = "ngram_stats"
@@ -61,7 +62,7 @@ interface = SecondaryAnalyzerInterface(
           human_readable_name="unique username"
         ),
         OutputColumn(
-          name=COL_MESSAGE_NGRAM_COUNT, data_type="integer",
+          name=COL_NGRAM_REPS_PER_USER, data_type="integer",
           human_readable_name="frequency by user"
         ),
         OutputColumn(

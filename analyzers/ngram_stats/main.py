@@ -9,7 +9,7 @@ from ..ngrams.interface import (COL_AUTHOR_ID, COL_MESSAGE_ID, COL_MESSAGE_SURRO
                                 COL_NGRAM_LENGTH, COL_NGRAM_WORDS,
                                 OUTPUT_MESSAGE, OUTPUT_MESSAGE_NGRAMS,
                                 OUTPUT_NGRAM_DEFS, COL_MESSAGE_TEXT, COL_MESSAGE_TIMESTAMP)
-from .interface import (COL_NGRAM_DISTINCT_POSTER_COUNT, COL_NGRAM_TOTAL_REPS,
+from .interface import (COL_NGRAM_DISTINCT_POSTER_COUNT, COL_NGRAM_TOTAL_REPS, COL_NGRAM_REPS_PER_USER,
                         OUTPUT_NGRAM_FULL, OUTPUT_NGRAM_STATS)
 
 
@@ -74,7 +74,7 @@ def main(context: SecondaryAnalyzerContext):
       df_ngram_summary_schema.field(COL_NGRAM_TOTAL_REPS),
       df_ngram_summary_schema.field(COL_NGRAM_DISTINCT_POSTER_COUNT),
       df_messages_schema.field(COL_AUTHOR_ID),
-      df_message_ngrams_schema.field(COL_MESSAGE_NGRAM_COUNT),
+      pa.field(COL_NGRAM_REPS_PER_USER, pa.int32()),
       df_messages_schema.field(COL_MESSAGE_SURROGATE_ID),
       df_messages_schema.field(COL_MESSAGE_ID),
       df_messages_schema.field(COL_MESSAGE_TEXT),
@@ -97,6 +97,11 @@ def main(context: SecondaryAnalyzerContext):
         df_ngram_summary_slice
           .join(df_message_ngrams, on=COL_NGRAM_ID)
           .join(df_messages, on=COL_MESSAGE_SURROGATE_ID)
+      ).with_columns(
+        pl.col(COL_MESSAGE_NGRAM_COUNT)
+          .sum().over([COL_NGRAM_ID, COL_AUTHOR_ID])
+          .alias(COL_NGRAM_REPS_PER_USER)
+          .cast(pl.Int32)
       ).select([
         COL_NGRAM_ID,
         COL_NGRAM_LENGTH,
@@ -104,7 +109,7 @@ def main(context: SecondaryAnalyzerContext):
         COL_NGRAM_TOTAL_REPS,
         COL_NGRAM_DISTINCT_POSTER_COUNT,
         COL_AUTHOR_ID,
-        COL_MESSAGE_NGRAM_COUNT,
+        COL_NGRAM_REPS_PER_USER,
         COL_MESSAGE_SURROGATE_ID,
         COL_MESSAGE_ID,
         COL_MESSAGE_TEXT,
@@ -113,7 +118,7 @@ def main(context: SecondaryAnalyzerContext):
         COL_NGRAM_LENGTH,
         COL_NGRAM_TOTAL_REPS,
         COL_NGRAM_DISTINCT_POSTER_COUNT,
-        COL_MESSAGE_NGRAM_COUNT,
+        COL_NGRAM_REPS_PER_USER,
         COL_AUTHOR_ID,
         COL_MESSAGE_SURROGATE_ID
       ], descending=[
