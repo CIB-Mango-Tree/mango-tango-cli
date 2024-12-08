@@ -3,15 +3,17 @@ from analyzer_interface import (AnalyzerInput, AnalyzerInterface,
 
 COL_AUTHOR_ID = "user_id"
 COL_MESSAGE_ID = "message_id"
+COL_MESSAGE_SURROGATE_ID = "message_surrogate_id"
 COL_MESSAGE_TEXT = "message_text"
 COL_MESSAGE_NGRAM_COUNT = "count"
 COL_NGRAM_ID = "ngram_id"
 COL_NGRAM_WORDS = "words"
 COL_NGRAM_LENGTH = "n"
+COL_MESSAGE_TIMESTAMP = "timestamp"
 
 OUTPUT_MESSAGE_NGRAMS = "message_ngrams"
 OUTPUT_NGRAM_DEFS = "ngrams"
-OUTPUT_MESSAGE_AUTHORS = "message_authors"
+OUTPUT_MESSAGE = "message_authors"
 
 interface = AnalyzerInterface(
   id="ngrams",
@@ -50,6 +52,13 @@ the corpus of text, and whether certain authors use these sequences more often.
       description="The text content of the message",
       name_hints=["message", "text", "comment",
                   "post", "body", "content", "tweet"]
+    ),
+    InputColumn(
+      name=COL_MESSAGE_TIMESTAMP,
+      human_readable_name="Message Timestamp",
+      data_type="datetime",
+      description="The time at which the message was posted",
+      name_hints=["time", "timestamp", "date", "ts"]
     )
   ]),
   outputs=[
@@ -57,7 +66,7 @@ the corpus of text, and whether certain authors use these sequences more often.
       id=OUTPUT_MESSAGE_NGRAMS,
       name="N-gram count per message",
       columns=[
-        OutputColumn(name=COL_MESSAGE_ID, data_type="identifier"),
+        OutputColumn(name=COL_MESSAGE_SURROGATE_ID, data_type="identifier"),
         OutputColumn(name=COL_NGRAM_ID, data_type="identifier"),
         OutputColumn(name=COL_MESSAGE_NGRAM_COUNT, data_type="integer")
       ]
@@ -73,12 +82,15 @@ the corpus of text, and whether certain authors use these sequences more often.
       ]
     ),
     AnalyzerOutput(
-      id=OUTPUT_MESSAGE_AUTHORS,
-      name="Message authorship",
-      description="Message authorship",
+      id=OUTPUT_MESSAGE,
+      name="Message data",
+      description="The original message data",
       columns=[
+        OutputColumn(name=COL_MESSAGE_SURROGATE_ID, data_type="identifier"),
         OutputColumn(name=COL_AUTHOR_ID, data_type="identifier"),
-        OutputColumn(name=COL_MESSAGE_ID, data_type="identifier")
+        OutputColumn(name=COL_MESSAGE_ID, data_type="identifier"),
+        OutputColumn(name=COL_MESSAGE_TEXT, data_type="text"),
+        OutputColumn(name=COL_MESSAGE_TIMESTAMP, data_type="datetime")
       ]
     )
   ]

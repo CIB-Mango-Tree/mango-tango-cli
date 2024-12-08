@@ -7,6 +7,7 @@ import polars as pl
 from filelock import FileLock
 from pydantic import BaseModel
 from tinydb import Query, TinyDB
+from analyzer_interface.interface import AnalyzerOutput
 
 STORAGE_VERSION = 1
 
@@ -121,18 +122,22 @@ class Storage:
     return os.path.join(self._get_project_secondary_output_root_path(
         project_id, analyzer_id, secondary_id), f"{output_id}.parquet")
 
-  def export_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, extension: SupportedOutputExtension):
+  def export_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, extension: SupportedOutputExtension, spec: AnalyzerOutput):
     output_df = self.load_project_primary_output(
       project_id, analyzer_id, output_id)
+    output_df = spec.transform_output(output_df)
+
     output_path = os.path.join(
       self._get_project_exports_root_path(project_id, analyzer_id),
       output_id
     )
     return self._save_output(output_path, output_df, extension)
 
-  def export_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, extension: SupportedOutputExtension):
+  def export_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, extension: SupportedOutputExtension, spec: AnalyzerOutput):
     output_df = self.load_project_secondary_output(
       project_id, analyzer_id, secondary_id, output_id)
+    output_df = spec.transform_output(output_df)
+
     output_path = os.path.join(
       self._get_project_exports_root_path(project_id, analyzer_id),
       (secondary_id if secondary_id ==

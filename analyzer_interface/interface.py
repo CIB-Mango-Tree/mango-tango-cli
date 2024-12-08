@@ -1,4 +1,5 @@
 from typing import Literal, Optional
+import polars as pl
 
 from pydantic import BaseModel
 
@@ -49,6 +50,22 @@ class AnalyzerOutput(BaseModel):
   description: Optional[str] = None
 
   columns: list["OutputColumn"]
+
+  def get_column_by_name(self, name: str):
+    for column in self.columns:
+      if column.name == name:
+        return column
+    return None
+
+  def transform_output(self, output_df):
+    return output_df.select([
+      pl.col(col_name).alias(
+        output_spec.human_readable_name_or_fallback()
+        if output_spec else col_name
+      )
+      for col_name in output_df.columns
+      if (output_spec := self.get_column_by_name(col_name)) or True
+    ])
 
 
 class AnalyzerInterface(BaseAnalyzerInterface):

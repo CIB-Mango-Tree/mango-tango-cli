@@ -117,8 +117,8 @@ class Output(BaseModel):
   def export(self, project_id: str, analyzer_id: str, storage: Storage, format: SupportedOutputExtension):
     if self.secondary is None:
       return storage.export_project_primary_output(
-        project_id, analyzer_id, self.output.id, format)
+        project_id, analyzer_id, self.output.id, format, self.output)
     else:
       return storage.export_project_secondary_output(
-        project_id, analyzer_id, self.secondary.id, self.output.id, format
+        project_id, analyzer_id, self.secondary.id, self.output.id, format, self.output
       )
