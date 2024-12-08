@@ -16,14 +16,14 @@ def main(context: PrimaryAnalyzerContext):
   df_input = input_reader.preprocess(
     pl.read_parquet(input_reader.parquet_path)
   )
+  df_input = df_input.with_columns(
+    (pl.int_range(pl.len()) + 1).alias(COL_MESSAGE_SURROGATE_ID)
+  )
   df_input = df_input.filter(
     pl.col(COL_MESSAGE_TEXT).is_not_null() &
     (pl.col(COL_MESSAGE_TEXT) != "") &
     pl.col(COL_AUTHOR_ID).is_not_null() &
     (pl.col(COL_AUTHOR_ID) != "")
-  )
-  df_input = df_input.with_columns(
-    (pl.int_range(pl.len()) + 1).alias(COL_MESSAGE_SURROGATE_ID)
   )
 
   def get_ngram_rows(ngrams_by_id: dict[str, int]):
