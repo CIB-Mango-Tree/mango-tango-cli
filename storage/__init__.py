@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from typing import Callable, Literal, Optional
 
 import platformdirs
@@ -7,6 +8,7 @@ import polars as pl
 from filelock import FileLock
 from pydantic import BaseModel
 from tinydb import Query, TinyDB
+
 from analyzer_interface.interface import AnalyzerOutput
 
 STORAGE_VERSION = 1
@@ -52,6 +54,13 @@ class Storage:
       (Project(**project) for project in projects),
       key=lambda project: project.display_name
     )
+
+  def delete_project(self, project_id: str):
+    with self._lock_database():
+      q = Query()
+      self.db.remove((q["id"] == project_id) & (q["class_"] == "project"))
+    project_path = self._get_project_path(project_id)
+    shutil.rmtree(project_path, ignore_errors=True)
 
   def load_project_input(self, project_id: str, *, n_records: Optional[int] = None):
     input_path = self._get_project_input_path(project_id)
@@ -188,7 +197,11 @@ class Storage:
   def _is_project_id_unique(self, project_id: str):
     """Check the database if the project ID is unique"""
     q = Query()
-    return not self.db.search(q["class_"] == "project" and q["id"] == project_id)
+    id_unique = not self.db.search(
+      q["class_"] == "project" and q["id"] == project_id
+    )
+    dir_unique = not os.path.exists(self._get_project_path(project_id))
+    return id_unique and dir_unique
 
   def _get_db_path(self):
     return os.path.join(self.user_data_dir, "db.json")
