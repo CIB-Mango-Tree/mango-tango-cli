@@ -44,7 +44,7 @@ class Storage:
     project_dir = self._get_project_path(project_id)
     os.makedirs(project_dir, exist_ok=True)
 
-    os.rename(input_temp_file, self._get_project_input_path(project_id))
+    shutil.move(input_temp_file, self._get_project_input_path(project_id))
     return project
 
   def list_projects(self):
