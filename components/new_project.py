@@ -62,10 +62,11 @@ def new_project(context: TerminalContext, storage: Storage):
 
   with context.nest(draw_box("4. Import", padding_lines=0)):
     print("Please wait as the dataset is imported...")
-    with tempfile.NamedTemporaryFile() as temp_file:
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
       importer.import_data(selected_file, temp_file.name, preload)
-      project = storage.init_project(
-        display_name=project_name, input_temp_file=temp_file.name)
+
+    project = storage.init_project(
+      display_name=project_name, input_temp_file=temp_file.name)
 
     print("Dataset successfully imported!")
     wait_for_key(True)

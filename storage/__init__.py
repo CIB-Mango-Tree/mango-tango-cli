@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from typing import Callable, Literal, Optional
 
 import platformdirs
@@ -7,6 +8,7 @@ import polars as pl
 from filelock import FileLock
 from pydantic import BaseModel
 from tinydb import Query, TinyDB
+
 from analyzer_interface.interface import AnalyzerOutput
 
 STORAGE_VERSION = 1
@@ -42,7 +44,7 @@ class Storage:
     project_dir = self._get_project_path(project_id)
     os.makedirs(project_dir, exist_ok=True)
 
-    os.rename(input_temp_file, self._get_project_input_path(project_id))
+    shutil.move(input_temp_file, self._get_project_input_path(project_id))
     return project
 
   def list_projects(self):
