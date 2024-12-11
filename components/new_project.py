@@ -1,14 +1,12 @@
 import os
 import tempfile
+from traceback import format_exc
 from typing import Optional
 
-from importing import ImporterSession, Importer, importers
+from importing import Importer, ImporterSession, importers
 from storage import Project, Storage
 from terminal_tools import draw_box, prompts, wait_for_key
-from terminal_tools.inception import TerminalContext, Scope
-import polars as pl
-from .utils import input_preview
-from traceback import format_exc
+from terminal_tools.inception import Scope, TerminalContext
 
 
 def new_project(context: TerminalContext, storage: Storage):
@@ -36,10 +34,11 @@ def new_project(context: TerminalContext, storage: Storage):
 
   with context.nest(draw_box("4. Import", padding_lines=0)):
     print("Please wait as the dataset is imported...")
-    with tempfile.NamedTemporaryFile() as temp_file:
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
       importer.import_as_parquet(temp_file.name)
-      project = storage.init_project(
-        display_name=project_name, input_temp_file=temp_file.name)
+
+    project = storage.init_project(
+      display_name=project_name, input_temp_file=temp_file.name)
 
     print("Dataset successfully imported!")
     wait_for_key(True)
