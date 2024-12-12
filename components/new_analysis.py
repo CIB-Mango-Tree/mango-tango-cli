@@ -12,7 +12,7 @@ from terminal_tools import draw_box, print_ascii_table, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
 from .export_outputs import (export_format_prompt, export_outputs_sequence,
-                             get_all_outputs)
+                             get_all_exportable_outputs)
 from .utils import get_user_columns
 import tempfile
 from traceback import format_exc
@@ -198,7 +198,7 @@ def new_analysis(context: TerminalContext, storage: Storage, project: Project):
             secondary.entry_point(secondary_context)
 
         run_scope.refresh()
-        outputs = get_all_outputs(storage, project, analyzer)
+        outputs = get_all_exportable_outputs(storage, project, analyzer)
         print("The test is complete.")
         print("")
         print("You now have the option to export the following outputs:")

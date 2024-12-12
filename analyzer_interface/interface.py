@@ -51,6 +51,8 @@ class AnalyzerOutput(BaseModel):
 
   columns: list["OutputColumn"]
 
+  internal: bool = False
+
   def get_column_by_name(self, name: str):
     for column in self.columns:
       if column.name == name:

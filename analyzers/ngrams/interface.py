@@ -65,6 +65,7 @@ the corpus of text, and whether certain authors use these sequences more often.
     AnalyzerOutput(
       id=OUTPUT_MESSAGE_NGRAMS,
       name="N-gram count per message",
+      internal=True,
       columns=[
         OutputColumn(name=COL_MESSAGE_SURROGATE_ID, data_type="identifier"),
         OutputColumn(name=COL_NGRAM_ID, data_type="identifier"),
@@ -74,6 +75,7 @@ the corpus of text, and whether certain authors use these sequences more often.
     AnalyzerOutput(
       id=OUTPUT_NGRAM_DEFS,
       name="N-gram definitions",
+      internal=True,
       description="The word compositions of each unique n-gram",
       columns=[
         OutputColumn(name=COL_NGRAM_ID, data_type="identifier"),
@@ -84,6 +86,7 @@ the corpus of text, and whether certain authors use these sequences more often.
     AnalyzerOutput(
       id=OUTPUT_MESSAGE,
       name="Message data",
+      internal=True,
       description="The original message data",
       columns=[
         OutputColumn(name=COL_MESSAGE_SURROGATE_ID, data_type="identifier"),
