@@ -1,7 +1,9 @@
 import os
 import re
 import shutil
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Optional, Iterable
+import pyarrow.parquet as pq
+import math
 
 import platformdirs
 import polars as pl
@@ -18,6 +20,11 @@ class Project(BaseModel):
   class_: Literal["project"] = "project"
   id: str
   display_name: str
+
+
+class Settings(BaseModel):
+  class_: Literal["settings"] = "settings"
+  export_chunk_size: Optional[int | Literal[False]] = None
 
 
 SupportedOutputExtension = Literal["parquet", "csv", "xlsx", "json"]
@@ -96,17 +103,18 @@ class Storage:
       os.path.join(root_path, output_id), output_df, extension,
     )
 
-  def _save_output(self, output_path_without_extension, output_df: pl.DataFrame, extension: SupportedOutputExtension,):
+  def _save_output(self, output_path_without_extension, output_df: pl.DataFrame | pl.LazyFrame, extension: SupportedOutputExtension,):
+    output_df = output_df.lazy()
     os.makedirs(os.path.dirname(output_path_without_extension), exist_ok=True)
     output_path = f"{output_path_without_extension}.{extension}"
     if extension == "parquet":
-      output_df.write_parquet(output_path)
+      output_df.sink_parquet(output_path)
     elif extension == "csv":
-      output_df.write_csv(output_path)
+      output_df.sink_csv(output_path)
     elif extension == "xlsx":
-      output_df.write_excel(output_path)
+      output_df.collect().write_excel(output_path)
     elif extension == "json":
-      output_df.write_json(output_path)
+      output_df.collect().write_json(output_path)
     else:
       raise ValueError(f"Unsupported format: {extension}")
     return output_path
@@ -131,28 +139,65 @@ class Storage:
     return os.path.join(self._get_project_secondary_output_root_path(
         project_id, analyzer_id, secondary_id), f"{output_id}.parquet")
 
-  def export_project_primary_output(self, project_id: str, analyzer_id: str, output_id: str, extension: SupportedOutputExtension, spec: AnalyzerOutput):
-    output_df = self.load_project_primary_output(
-      project_id, analyzer_id, output_id)
-    output_df = spec.transform_output(output_df)
-
-    output_path = os.path.join(
-      self._get_project_exports_root_path(project_id, analyzer_id),
-      output_id
+  def export_project_primary_output(
+    self, project_id: str, analyzer_id: str, output_id: str, *,
+    extension: SupportedOutputExtension, spec: AnalyzerOutput,
+    export_chunk_size: Optional[int] = None
+  ):
+    return self._export_output(
+      self.get_primary_output_parquet_path(
+        project_id, analyzer_id, output_id),
+      os.path.join(
+        self._get_project_exports_root_path(project_id, analyzer_id),
+        output_id
+      ),
+      extension=extension,
+      spec=spec,
+      export_chunk_size=export_chunk_size
     )
-    return self._save_output(output_path, output_df, extension)
 
-  def export_project_secondary_output(self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, extension: SupportedOutputExtension, spec: AnalyzerOutput):
-    output_df = self.load_project_secondary_output(
-      project_id, analyzer_id, secondary_id, output_id)
-    output_df = spec.transform_output(output_df)
-
-    output_path = os.path.join(
+  def export_project_secondary_output(
+    self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str, *,
+    extension: SupportedOutputExtension, spec: AnalyzerOutput,
+    export_chunk_size: Optional[int] = None
+  ):
+    exported_path = os.path.join(
       self._get_project_exports_root_path(project_id, analyzer_id),
-      (secondary_id if secondary_id ==
-       output_id else f"{secondary_id}__{output_id}")
+      secondary_id
+        if secondary_id == output_id
+        else f"{secondary_id}__{output_id}"
     )
-    return self._save_output(output_path, output_df, extension)
+    return self._export_output(
+      self.get_secondary_output_parquet_path(
+        project_id, analyzer_id, secondary_id, output_id),
+      exported_path,
+      extension=extension,
+      spec=spec,
+      export_chunk_size=export_chunk_size
+    )
+
+  def _export_output(
+    self, input_path: str, output_path: str, *,
+    extension: SupportedOutputExtension, spec: AnalyzerOutput,
+    export_chunk_size: Optional[int] = None
+  ):
+    if not export_chunk_size:
+      df = pl.scan_parquet(input_path)
+      self._save_output(output_path, spec.transform_output(df), extension)
+      return f"{output_path}.{extension}"
+
+    with pq.ParquetFile(input_path) as reader:
+      num_chunks = math.ceil(reader.metadata.num_rows / export_chunk_size)
+      get_batches = (
+        df
+        for batch in reader.iter_batches()
+        if (df := pl.from_arrow(batch)) is not None
+      )
+      for chunk_id, chunk in enumerate(collect_dataframe_chunks(get_batches, export_chunk_size)):
+        chunk = spec.transform_output(chunk)
+        self._save_output(f"{output_path}_{chunk_id}", chunk, extension)
+        yield chunk_id / num_chunks
+      return f"{output_path}_[*].{extension}"
 
   def list_project_analyses(self, project_id: str):
     project_path = self._get_project_path(project_id)
@@ -232,6 +277,27 @@ class Storage:
     lock_path = os.path.join(self.temp_dir, "db.lock")
     return FileLock(lock_path)
 
+  def get_settings(self):
+    with self._lock_database():
+      return self._get_settings()
+
+  def _get_settings(self):
+    q = Query()
+    settings = self.db.search(q["class_"] == "settings")
+    if settings:
+      return Settings(**settings[0])
+    return Settings()
+
+  def save_settings(self, **kwargs):
+    with self._lock_database():
+      q = Query()
+      settings = self._get_settings()
+      new_settings = Settings(**{
+        **settings.model_dump(),
+        **kwargs,
+      })
+      self.db.upsert(new_settings.model_dump(), q["class_"] == "settings")
+
   @staticmethod
   def _slugify_name(name: str):
     return re.sub(r'\W+', '_', name.lower()).strip("_")
@@ -250,3 +316,28 @@ class Storage:
 
 class TableStats(BaseModel):
   num_rows: int
+
+
+def collect_dataframe_chunks(input: Iterable[pl.DataFrame], size_threshold: int) -> Iterable[pl.DataFrame]:
+  output_buffer = []
+  size = 0
+  for df in input:
+    while True:
+      available_space = size_threshold - size
+      slice = df.head(available_space)
+      output_buffer.append(slice)
+      size = size + slice.height
+      remaining_space = available_space - slice.height
+
+      if remaining_space == 0:
+        yield pl.concat(output_buffer)
+        output_buffer = []
+        size = 0
+
+      if slice.height == df.height:
+        break
+      else:
+        df = df.tail(-available_space)
+
+  if output_buffer:
+    yield pl.concat(output_buffer)
