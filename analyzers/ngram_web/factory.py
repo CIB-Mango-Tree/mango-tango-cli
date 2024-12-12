@@ -20,21 +20,23 @@ def factory(context: WebPresenterContext):
 
   fig = px.scatter(
     x=df[COL_NGRAM_DISTINCT_POSTER_COUNT],
-    y=df[COL_NGRAM_TOTAL_REPS],
-    labels={"x": "Poster Count", "y": "Total Repetitions"},
-    title="Poster Count vs. Total Reps",
+    y=df[COL_NGRAM_TOTAL_REPS] / df[COL_NGRAM_DISTINCT_POSTER_COUNT],
+    labels={"x": "User Count", "y": "Amplifiction Factor"},
+    title="User Count vs Amplification Factor",
+    log_y=True,
+    log_x=True
   )
 
   fig.update_traces(
     hovertemplate='<b>"%{customdata}"</b><br>' +
-      'Poster Count: %{x}<br>' +
-      'Total Repetitions: %{y}<br>' +
+      'User Count: %{x}<br>' +
+      'Avg Repetitions Per User: %{y}<br>' +
       '<extra></extra>',
     customdata=df[COL_NGRAM_WORDS]
   )
 
   context.dash_app.layout = Div([
     H2("N-gram repetition statistics"),
-    P("Higher points are more-repeated. Higher points to the left are repeated by fewer posters."),
+    P("Higher points are more-repeated. Higher points to the right are repeated by more users."),
     Graph(id="scatter-plot", figure=fig)
   ])
