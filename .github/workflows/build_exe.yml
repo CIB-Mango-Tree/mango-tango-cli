@@ -18,24 +18,6 @@ jobs:
             move_command: move dist\mangotango.exe dist\mangotango_windows.exe
             sha_command: pwsh -c "Get-FileHash -Algorithm SHA1 dist\mangotango_windows.exe | Format-Table Hash -HideTableHeaders > dist\mangotango_windows.exe.sha1"
             list_command: dir dist
-          - platform_name: MacOS 12
-            artifact_name: macos-12
-            os: macos-12
-            move_command: mv dist/mangotango dist/mangotango_macos_12
-            sha_command: shasum -a 1 dist/mangotango_macos_12 > dist/mangotango_macos_12.sha1
-            list_command: ls -ll dist
-          - platform_name: MacOS 13
-            artifact_name: macos-13
-            os: macos-13
-            move_command: mv dist/mangotango dist/mangotango_macos_13
-            sha_command: shasum -a 1 dist/mangotango_macos_13 > dist/mangotango_macos_13.sha1
-            list_command: ls -ll dist
-          - platform_name: MacOS 14
-            artifact_name: macos-14
-            os: macos-14
-            move_command: mv dist/mangotango dist/mangotango_macos_14
-            sha_command: shasum -a 1 dist/mangotango_macos_14 > dist/mangotango_macos_14.sha1
-            list_command: ls -ll dist
           - platform_name: MacOS 15
             artifact_name: macos-15
             os: macos-15
@@ -101,7 +83,7 @@ jobs:
         run: ${{ matrix.list_command }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -112,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
