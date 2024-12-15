@@ -1,0 +1,127 @@
+name: Run Tests
+
+on:
+
+  pull_request:
+
+    branches:
+
+      - main
+
+jobs:
+
+  build:
+
+    strategy:
+
+      matrix:
+
+        include:
+
+          - platform_name: Windows
+
+            artifact_name: windows
+
+            os: windows-2022
+
+            version_command: icacls "VERSION" /grant Everyone:F /T /C /Q
+
+            move_command: move dist\mangotango.exe dist\mangotango_windows.exe
+
+            sha_command: pwsh -c "Get-FileHash -Algorithm SHA1 dist\mangotango_windows.exe | Format-Table Hash -HideTableHeaders > dist\mangotango_windows.exe.sha1"
+
+            list_command: dir dist
+
+          - platform_name: MacOS 12
+
+            artifact_name: macos-12
+
+            os: macos-12
+
+            move_command: mv dist/mangotango dist/mangotango_macos_12
+
+            sha_command: shasum -a 1 dist/mangotango_macos_12 > dist/mangotango_macos_12.sha1
+
+            list_command: ls -ll dist
+
+          - platform_name: MacOS 13
+
+            artifact_name: macos-13
+
+            os: macos-13
+
+            move_command: mv dist/mangotango dist/mangotango_macos_13
+
+            sha_command: shasum -a 1 dist/mangotango_macos_13 > dist/mangotango_macos_13.sha1
+
+            list_command: ls -ll dist
+
+          - platform_name: MacOS 14
+
+            artifact_name: macos-14
+
+            os: macos-14
+
+            move_command: mv dist/mangotango dist/mangotango_macos_14
+
+            sha_command: shasum -a 1 dist/mangotango_macos_14 > dist/mangotango_macos_14.sha1
+
+            list_command: ls -ll dist
+
+          - platform_name: MacOS 15
+
+            artifact_name: macos-15
+
+            os: macos-15
+
+            move_command: mv dist/mangotango dist/mangotango_macos_15
+
+            sha_command: shasum -a 1 dist/mangotango_macos_15 > dist/mangotango_macos_15.sha1
+
+            list_command: ls -ll dist
+
+    name: Build ${{ matrix.platform_name }}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+
+          key: ${{ matrix.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+          restore-keys: |
+
+            ${{ matrix.os }}-pip-
+
+      - name: Install dependencies
+
+        run: |
+
+          python -m pip install --upgrade pip
+
+          pip install -r requirements.txt
+
+
+      - name: Run pytest
+
+        env:
+            PYTHONPATH: ${{ github.workspace }}
+
+        run: |
+          pip install pytest
+
+          # Run pytest with verbose output
+          pytest tests -v
