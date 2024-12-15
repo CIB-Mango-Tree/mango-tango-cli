@@ -59,7 +59,7 @@ class AnalyzerOutput(BaseModel):
         return column
     return None
 
-  def transform_output(self, output_df):
+  def transform_output(self, output_df: pl.LazyFrame | pl.DataFrame):
     return output_df.select([
       pl.col(col_name).alias(
         output_spec.human_readable_name_or_fallback()

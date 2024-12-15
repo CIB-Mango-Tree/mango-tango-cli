@@ -4,8 +4,9 @@ from typing import Optional
 from inquirer import (
   confirm as inquirer_confirm,
   list_input as inquirer_list_input,
-  text as inquirer_text, checkbox as inquirer_checkbox
+  text as inquirer_text, checkbox as inquirer_checkbox,
 )
+from inquirer.errors import ValidationError
 
 from .utils import clear_printed_lines
 
@@ -126,6 +127,39 @@ def text(message: str, **kwargs):
   Wraps `inquirer`'s text input and catches KeyboardInterrupt
   """
   return wrap_keyboard_interrupt(lambda: inquirer_text(message, **kwargs))
+
+
+def int_input(
+  message: str, *,
+  min: Optional[int] = None,
+  max: Optional[int] = None,
+  **kwargs) -> Optional[int]:
+  """
+  Wraps `inquirer`'s text input and catches KeyboardInterrupt
+  """
+  def validate_value(value):
+    try:
+      value = int(value)
+    except ValueError:
+      raise ValidationError("Please enter a valid integer.")
+
+    if min is not None and value < min:
+      raise ValidationError(
+        f"Please enter a value greater than or equal to {min}.")
+
+    if max is not None and value > max:
+      raise ValidationError(
+        f"Please enter a value less than or equal to {max}.")
+
+    return True
+
+  return wrap_keyboard_interrupt(
+    lambda: inquirer_text(
+      message,
+      validate=lambda previous_answers, value: validate_value(value), **kwargs
+    ),
+    None
+  )
 
 
 def wrap_keyboard_interrupt(fn, fallback=None):
