@@ -69,6 +69,14 @@ class Storage:
     project_path = self._get_project_path(project_id)
     shutil.rmtree(project_path, ignore_errors=True)
 
+  def rename_project(self, project_id: str, name: str):
+    with self._lock_database():
+      q = Query()
+      self.db.update(
+        {"display_name": name},
+        (q["id"] == project_id) & (q["class_"] == "project")
+      )
+
   def load_project_input(self, project_id: str, *, n_records: Optional[int] = None):
     input_path = self._get_project_input_path(project_id)
     return pl.read_parquet(input_path, n_rows=n_records)

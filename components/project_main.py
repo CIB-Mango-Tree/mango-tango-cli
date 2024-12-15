@@ -16,6 +16,7 @@ def project_main(context: TerminalContext, storage: Storage, project: Project):
         choices=[
           ("New test", "new_analysis"),
           ("View a previously run test", "select_analysis"),
+          ("Rename this dataset", "rename_project"),
           ("Delete this dataset", "delete_project"),
           ("(Back)", None),
         ],
@@ -57,3 +58,16 @@ def project_main(context: TerminalContext, storage: Storage, project: Project):
       print("🔥 Dataset deleted.")
       wait_for_key(True)
       return
+
+    if action == "rename_project":
+      new_name = prompts.text("Enter a new name for this dataset")
+      if not new_name:
+        print("Renaming canceled.")
+        wait_for_key(True)
+        continue
+
+      storage.rename_project(project.id, new_name)
+      project.display_name = new_name
+      print("🔥 Dataset renamed.")
+      wait_for_key(True)
+      continue
