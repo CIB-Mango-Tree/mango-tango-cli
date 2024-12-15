@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from tinydb import Query, TinyDB
 
 from analyzer_interface.interface import AnalyzerOutput
+from .file_selector import FileSelectorStateManager
 
 STORAGE_VERSION = 1
 
@@ -25,6 +26,11 @@ class Project(BaseModel):
 class Settings(BaseModel):
   class_: Literal["settings"] = "settings"
   export_chunk_size: Optional[int | Literal[False]] = None
+
+
+class FileSelectionState(BaseModel):
+  class_: Literal["file_selector_state"] = "file_selector_state"
+  last_path: Optional[str] = None
 
 
 SupportedOutputExtension = Literal["parquet", "csv", "xlsx", "json"]
@@ -41,6 +47,8 @@ class Storage:
     self.db = TinyDB(self._get_db_path())
     with self._lock_database():
       self._ensure_database_version()
+
+    self.file_selector_state = AppFileSelectorStateManager(self)
 
   def init_project(self, *, display_name: str, input_temp_file: str):
     with self._lock_database():
@@ -349,3 +357,27 @@ def collect_dataframe_chunks(input: Iterable[pl.DataFrame], size_threshold: int)
 
   if output_buffer:
     yield pl.concat(output_buffer)
+
+
+class AppFileSelectorStateManager(FileSelectorStateManager):
+  def __init__(self, storage: "Storage"):
+    self.storage = storage
+
+  def get_current_path(self):
+    return self._load_state().last_path
+
+  def set_current_path(self, path: str):
+    self._save_state(path)
+
+  def _load_state(self):
+    q = Query()
+    state = self.storage.db.search(q["class_"] == "file_selector_state")
+    if state:
+      return FileSelectionState(**state[0])
+    return FileSelectionState()
+
+  def _save_state(self, last_path: str):
+    self.storage.db.upsert(
+      FileSelectionState(last_path=last_path).model_dump(),
+      Query()["class_"] == "file_selector_state"
+    )

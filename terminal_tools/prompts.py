@@ -7,6 +7,7 @@ from inquirer import (
   text as inquirer_text, checkbox as inquirer_checkbox,
 )
 from inquirer.errors import ValidationError
+from storage.file_selector import FileSelectorStateManager
 
 from .utils import clear_printed_lines
 
@@ -39,7 +40,7 @@ def get_drives():
 
 def file_selector(
   message: str = "select a file", *,
-  initial_path: str = os.curdir
+  state: Optional[FileSelectorStateManager] = None
 ):
   """Lets the user select a file from the filesystem.
 
@@ -52,7 +53,11 @@ def file_selector(
       (str, optional): The absolute path selected by the user, or None if the
         user cancels the prompt.
   """
-  current_path = os.path.realpath(initial_path)
+  initial_dir = state and state.get_current_path()
+  if not os.path.isdir(initial_dir):
+    initial_dir = None
+
+  current_path = os.path.realpath(initial_dir or os.curdir)
 
   if os.name == "nt":
     drives = get_drives()
@@ -98,6 +103,8 @@ def file_selector(
       current_path = os.path.realpath(
         os.path.join(current_path, selected_entry))
     else:
+      if state is not None:
+        state.set_current_path(current_path)
       return os.path.join(current_path, selected_entry)
 
 

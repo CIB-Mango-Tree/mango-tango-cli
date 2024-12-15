@@ -12,7 +12,9 @@ from terminal_tools.inception import Scope, TerminalContext
 def new_project(context: TerminalContext, storage: Storage):
   with context.nest(draw_box("1. Data Source", padding_lines=0)):
     print("Select a file for your dataset")
-    selected_file = prompts.file_selector("Select a file")
+    selected_file = prompts.file_selector(
+      "Select a file", state=storage.file_selector_state
+    )
     if selected_file is None:
       print("Canceled")
       return wait_for_key(True)
