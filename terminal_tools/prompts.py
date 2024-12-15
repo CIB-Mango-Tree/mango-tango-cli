@@ -53,7 +53,7 @@ def file_selector(
           user cancels the prompt.
     """
     initial_dir = state and state.get_current_path()
-    if not os.path.isdir(initial_dir):
+    if initial_dir and not os.path.isdir(initial_dir):
         initial_dir = None
 
     current_path = os.path.realpath(initial_dir or os.curdir)
