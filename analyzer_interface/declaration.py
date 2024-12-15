@@ -7,24 +7,47 @@ from .interface import (AnalyzerInterface, SecondaryAnalyzerInterface,
 
 
 class AnalyzerDeclaration(AnalyzerInterface):
-  """
-  The analyzer's entry point. The function should ensure that the outputs
-  specified in the interface are generated.
-  """
   entry_point: Callable[[PrimaryAnalyzerContext], None]
+  is_distributed: bool
 
-  def __init__(self, interface: AnalyzerInterface, main: Callable):
-    super().__init__(**interface.model_dump(), entry_point=main)
+  def __init__(
+    self, interface: AnalyzerInterface, main: Callable,
+    *,
+    is_distributed: bool = False
+  ):
+    """Creates a primary analyzer declaration
+
+    Args:
+      interface (AnalyzerInterface): The metadata interface for the primary analyzer.
+
+      main (Callable):
+        The entry point function for the primary analyzer. This function should
+        take a single argument of type `PrimaryAnalyzerContext` and should ensure
+        that the outputs specified in the interface are generated.
+
+      is_distributed (bool):
+        Set this explicitly to `True` once the analyzer is ready to be shipped
+        to end users; it will make the analyzer available in the distributed
+        executable.
+    """
+    super().__init__(**interface.model_dump(),
+                     entry_point=main, is_distributed=is_distributed)
 
 
 class SecondaryAnalyzerDeclaration(SecondaryAnalyzerInterface):
   entry_point: Callable[["SecondaryAnalyzerContext"], None]
-  """
-  The analyzer's entry point. The function should ensure that the outputs
-  specified in the interface are generated.
-  """
 
   def __init__(self, interface: SecondaryAnalyzerInterface, main: Callable):
+    """Creates a secondary analyzer declaration
+
+    Args:
+      interface (SecondaryAnalyzerInterface): The metadata interface for the secondary analyzer.
+
+      main (Callable):
+        The entry point function for the secondary analyzer. This function should
+        take a single argument of type `SecondaryAnalyzerContext` and should ensure
+        that the outputs specified in the interface are generated.
+    """
     super().__init__(**interface.model_dump(), entry_point=main)
 
 

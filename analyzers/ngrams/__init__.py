@@ -5,5 +5,6 @@ from .main import main
 
 ngrams = AnalyzerDeclaration(
   interface=interface,
-  main=main
+  main=main,
+  is_distributed=True
 )

@@ -8,6 +8,8 @@ from analyzer_interface import (AnalyzerDeclaration, AnalyzerInterface,
                                 SecondaryAnalyzerInterface,
                                 WebPresenterDeclaration)
 
+from meta import is_development
+
 
 class AnalyzerSuite(BaseModel):
   all_analyzers: list[Union[AnalyzerDeclaration,
@@ -19,6 +21,7 @@ class AnalyzerSuite(BaseModel):
     return [
       analyzer for analyzer in self.all_analyzers
       if isinstance(analyzer, AnalyzerDeclaration)
+      if analyzer.is_distributed or is_development()
     ]
 
   @cached_property
