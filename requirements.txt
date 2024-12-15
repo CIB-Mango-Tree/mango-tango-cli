@@ -10,3 +10,4 @@ pandas==2.2.3 # needed by plotly
 pyarrow==17.0.0
 dash==2.18.1
 waitress==3.0.0
+colorama==0.4.6
