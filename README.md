@@ -6,9 +6,21 @@ Python 3.12
 
 ## Setting up
 
+- Make sure you have Python 3.12 installed on your system.
+- Create the virtual environment at `venv` using the following command:
+
 ```shell
-pip install -r requirements.txt
+python -m venv venv
 ```
+
+- Activate the bootstrap script for your shell environmennt:
+  - PS1: `./bootstrap.ps1`
+  - Bash: `./bootstrap.sh`
+
+  This will install the required dependencies for project development,
+  activate a pre-commit hook that will format the code using `isort` and
+  `black`.
+
 
 ## Starting the application
 
