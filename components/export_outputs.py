@@ -79,6 +79,7 @@ def export_outputs_sequence(
         for output in selected_outputs
     )
 
+    export_chunk_size = None
     if has_large_dfs:
         settings = storage.get_settings()
         if settings.export_chunk_size is None:
@@ -116,9 +117,6 @@ def export_outputs_sequence(
 
         else:
             export_chunk_size = settings.export_chunk_size or None
-
-    else:
-        export_chunk_size = None
 
     print("Beginning export...")
     for selected_output in selected_outputs:
