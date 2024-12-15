@@ -1,6 +1,6 @@
-from .importer import Importer, IImporterPreload
+from .importer import Importer, ImporterSession
 from .csv import CSVImporter
 
-importers: list[Importer[IImporterPreload]] = [
+importers: list[Importer[ImporterSession]] = [
   CSVImporter()
 ]
