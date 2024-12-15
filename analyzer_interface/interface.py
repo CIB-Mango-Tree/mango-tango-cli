@@ -60,6 +60,7 @@ class AnalyzerOutput(BaseModel):
         return None
 
     def transform_output(self, output_df: pl.LazyFrame | pl.DataFrame):
+        output_columns = output_df.lazy().collect_schema().names()
         return output_df.select(
             [
                 pl.col(col_name).alias(
@@ -67,7 +68,7 @@ class AnalyzerOutput(BaseModel):
                     if output_spec
                     else col_name
                 )
-                for col_name in output_df.columns
+                for col_name in output_columns
                 if (output_spec := self.get_column_by_name(col_name)) or True
             ]
         )
