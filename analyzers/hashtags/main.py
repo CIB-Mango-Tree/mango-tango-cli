@@ -1,21 +1,25 @@
-import polars as pl
+from collections import Counter
 from itertools import accumulate
+
+import polars as pl
+
+from analyzer_interface.context import PrimaryAnalyzerContext
+
 from .interface import (
     COL_AUTHOR_ID,
-    COL_TIME,
     COL_HASHTAGS,
-    OUTPUT_GINI,
+    COL_TIME,
     OUTPUT_COL_COUNT,
     OUTPUT_COL_GINI,
-    OUTPUT_COL_HASHTAGS
+    OUTPUT_COL_HASHTAGS,
+    OUTPUT_GINI,
 )
-from collections import Counter
-from analyzer_interface.context import PrimaryAnalyzerContext
 
 # let's look at the hashtags column
 COLS_ALL = [COL_AUTHOR_ID, COL_TIME, COL_HASHTAGS]
 
-NULL_CHAR = "[]" # this is taken as the null character for hashtags
+NULL_CHAR = "[]"  # this is taken as the null character for hashtags
+
 
 def gini(x):
     """
@@ -41,19 +45,19 @@ def gini(x):
 def main(context: PrimaryAnalyzerContext):
 
     input_reader = context.input()
-    df_input = input_reader.preprocess(
-        pl.read_parquet(input_reader.parquet_path)
-    )
+    df_input = input_reader.preprocess(pl.read_parquet(input_reader.parquet_path))
 
     # assign None to messages with no hashtags
     df_input = df_input.with_columns(
         pl.when(pl.col(COL_HASHTAGS) == NULL_CHAR)
         .then(None)
-        .otherwise(pl.col(COL_HASHTAGS)
-                .str.strip_chars("[]")
-                .str.replace_all("'", "")
-                .str.replace_all(" ", "")
-                .str.split(",")) # split hashtags into List[str]
+        .otherwise(
+            pl.col(COL_HASHTAGS)
+            .str.strip_chars("[]")
+            .str.replace_all("'", "")
+            .str.replace_all(" ", "")
+            .str.split(",")
+        )  # split hashtags into List[str]
         .name.keep()
     )
 
@@ -67,15 +71,19 @@ def main(context: PrimaryAnalyzerContext):
             pl.col(COL_HASHTAGS),
         )
         .sort(COL_TIME)
-        .group_by_dynamic(COL_TIME, every="1h") # this could be a parameter
+        .group_by_dynamic(COL_TIME, every="1h")  # this could be a parameter
         .agg(
             pl.col(COL_HASHTAGS).explode().alias(OUTPUT_COL_HASHTAGS),
             pl.col(COL_HASHTAGS).explode().count().alias(OUTPUT_COL_COUNT),
-            pl.col(COL_HASHTAGS).explode().map_elements(
-                lambda x: gini(x.to_list()), 
+            pl.col(COL_HASHTAGS)
+            .explode()
+            .map_elements(
+                lambda x: gini(x.to_list()),
                 return_dtype=pl.Float32,
-                returns_scalar=True).alias(OUTPUT_COL_GINI),
+                returns_scalar=True,
             )
+            .alias(OUTPUT_COL_GINI),
+        )
     )
 
     print("Output preview:")

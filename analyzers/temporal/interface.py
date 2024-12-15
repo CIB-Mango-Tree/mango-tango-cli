@@ -1,6 +1,10 @@
-from analyzer_interface import (AnalyzerInput, AnalyzerInterface,
-                                AnalyzerOutput, InputColumn, OutputColumn)
-
+from analyzer_interface import (
+    AnalyzerInput,
+    AnalyzerInterface,
+    AnalyzerOutput,
+    InputColumn,
+    OutputColumn,
+)
 
 INPUT_COL_TIMESTAMP = "timestamp"
 
@@ -18,41 +22,43 @@ For CIB analysis, this approach helps by revealing temporal patterns that may in
 """
 
 interface = AnalyzerInterface(
-  id="temporal",
-  version="0.1.0",
-  name="Time frequency analysis",
-  short_description="Counts posting events in custom time intervals to discover potential periodic activity.",
-  long_description=description,
-  input=AnalyzerInput(columns=[
-    InputColumn(
-      name=INPUT_COL_TIMESTAMP,
-      human_readable_name="Post Timestamp",
-      data_type="datetime",
-      description="The timestamp of the event or post."
-    )
-  ]),
-  outputs=[
-    AnalyzerOutput(
-      id=OUTPUT_TABLE_INTERVAL_COUNT,
-      name="Interval event count",
-      description="The count of events in each time interval.",
-      columns=[
-        OutputColumn(
-          name=OUTPUT_COL_TIME_INTERVAL_START,
-          description="The start timestamp of the bin interval",
-          data_type="time"
-        ),
-        OutputColumn(
-          name=OUTPUT_COL_TIME_INTERVAL_END,
-          description="The end timestamp of the bin interval",
-          data_type="time"
-        ),
-        OutputColumn(
-          name=OUTPUT_COL_POST_COUNT,
-          description="The number of posts that fall within the time interval",
-          data_type="integer"
+    id="temporal",
+    version="0.1.0",
+    name="Time frequency analysis",
+    short_description="Counts posting events in custom time intervals to discover potential periodic activity.",
+    long_description=description,
+    input=AnalyzerInput(
+        columns=[
+            InputColumn(
+                name=INPUT_COL_TIMESTAMP,
+                human_readable_name="Post Timestamp",
+                data_type="datetime",
+                description="The timestamp of the event or post.",
+            )
+        ]
+    ),
+    outputs=[
+        AnalyzerOutput(
+            id=OUTPUT_TABLE_INTERVAL_COUNT,
+            name="Interval event count",
+            description="The count of events in each time interval.",
+            columns=[
+                OutputColumn(
+                    name=OUTPUT_COL_TIME_INTERVAL_START,
+                    description="The start timestamp of the bin interval",
+                    data_type="time",
+                ),
+                OutputColumn(
+                    name=OUTPUT_COL_TIME_INTERVAL_END,
+                    description="The end timestamp of the bin interval",
+                    data_type="time",
+                ),
+                OutputColumn(
+                    name=OUTPUT_COL_POST_COUNT,
+                    description="The number of posts that fall within the time interval",
+                    data_type="integer",
+                ),
+            ],
         )
-      ]
-    )
-  ]
+    ],
 )
