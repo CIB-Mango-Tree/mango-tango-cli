@@ -10,12 +10,14 @@ from analyzers import suite
 from storage import Project, Storage, SupportedOutputExtension
 from terminal_tools import open_directory_explorer, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
+import polars as pl
+from terminal_tools.progress import ProgressReporter
 
 
 def export_outputs(context: TerminalContext, storage: Storage, project: Project, analyzer: AnalyzerInterface, *, all=False):
   with context.nest("[Export Output]\n\n") as scope:
     outputs = sorted(
-      get_all_outputs(storage, project, analyzer),
+      get_all_exportable_outputs(storage, project, analyzer),
       key=lambda output: (
         "0" if output.secondary is None else "1_" + output.secondary.name,
         output.output.name
@@ -93,15 +95,19 @@ def export_format_prompt():
   )
 
 
-def get_all_outputs(storage: Storage, project: Project, analyzer: AnalyzerInterface):
+def get_all_exportable_outputs(storage: Storage, project: Project, analyzer: AnalyzerInterface):
   return [
-    *(Output(output=output, secondary=None)
-      for output in analyzer.outputs),
+    *(
+      Output(output=output, secondary=None)
+      for output in analyzer.outputs
+      if not output.internal
+    ),
     *(
       Output(output=output, secondary=secondary)
       for secondary_id in storage.list_project_secondary_analyses(project.id, analyzer.id)
       if (secondary := suite.get_secondary_analyzer_by_id(analyzer.id, secondary_id)) is not None
       for output in secondary.outputs
+      if not output.internal
     )
   ]
 
