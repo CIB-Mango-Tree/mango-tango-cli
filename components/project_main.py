@@ -44,6 +44,13 @@ def project_main(
             continue
 
         if action == "delete_project":
+            print(
+                f"⚠️  Warning  ⚠️\n\n"
+                f"This will permanently delete the imported dataset and all of its analyses, "
+                f"including all of their exported outputs.\n\n"
+                f"**Be sure to copy out any exports you want to keep before proceeding.**\n\n"
+                f"The original file used to create the dataset will NOT be deleted.\n\n"
+            )
             confirm = prompts.confirm(
                 "Are you sure you want to delete this dataset?", default=False
             )
