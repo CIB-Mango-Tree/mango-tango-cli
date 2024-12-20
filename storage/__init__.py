@@ -2,6 +2,7 @@ import math
 import os
 import re
 import shutil
+from datetime import datetime
 from typing import Callable, Iterable, Literal, Optional
 
 import platformdirs
@@ -14,8 +15,6 @@ from tinydb import Query, TinyDB
 from analyzer_interface.interface import AnalyzerOutput
 
 from .file_selector import FileSelectorStateManager
-
-STORAGE_VERSION = 1
 
 
 class Project(BaseModel):
@@ -34,6 +33,25 @@ class FileSelectionState(BaseModel):
     last_path: Optional[str] = None
 
 
+class AnalysisModel(BaseModel):
+    class_: Literal["analysis"] = "analysis"
+    analysis_id: str
+    project_id: str
+    display_name: str
+    primary_analyzer_id: str
+    path: str
+    column_mapping: Optional[dict[str, str]] = None
+    create_timestamp: Optional[float] = None
+    is_draft: Optional[bool] = False
+
+    def create_time(self):
+        return (
+            datetime.fromtimestamp(self.create_timestamp)
+            if self.create_timestamp
+            else None
+        )
+
+
 SupportedOutputExtension = Literal["parquet", "csv", "xlsx", "json"]
 
 
@@ -47,7 +65,7 @@ class Storage:
         )
         self.db = TinyDB(self._get_db_path())
         with self._lock_database():
-            self._ensure_database_version()
+            self._bootstrap_analyses_v1()
 
         self.file_selector_state = AppFileSelectorStateManager(self)
 
@@ -70,6 +88,13 @@ class Storage:
             (Project(**project) for project in projects),
             key=lambda project: project.display_name,
         )
+
+    def get_project(self, project_id: str):
+        q = Query()
+        project = self.db.search((q["class_"] == "project") & (q["id"] == project_id))
+        if project:
+            return Project(**project[0])
+        return None
 
     def delete_project(self, project_id: str):
         with self._lock_database():
@@ -96,12 +121,12 @@ class Storage:
         return TableStats(num_rows=num_rows)
 
     def save_project_primary_outputs(
-        self, project_id: str, analyzer_id: str, outputs: dict[str, pl.DataFrame]
+        self, analysis: AnalysisModel, outputs: dict[str, pl.DataFrame]
     ):
         for output_id, output_df in outputs.items():
             self._save_output(
                 os.path.join(
-                    self._get_project_primary_output_root_path(project_id, analyzer_id),
+                    self._get_project_primary_output_root_path(analysis),
                     output_id,
                 ),
                 output_df,
@@ -110,8 +135,7 @@ class Storage:
 
     def save_project_secondary_outputs(
         self,
-        project_id: str,
-        analyzer_id: str,
+        analysis: AnalysisModel,
         secondary_id: str,
         outputs: dict[str, pl.DataFrame],
     ):
@@ -119,7 +143,7 @@ class Storage:
             self._save_output(
                 os.path.join(
                     self._get_project_secondary_output_root_path(
-                        project_id, analyzer_id, secondary_id
+                        analysis, secondary_id
                     ),
                     output_id,
                 ),
@@ -129,16 +153,13 @@ class Storage:
 
     def save_project_secondary_output(
         self,
-        project_id: str,
-        analyzer_id: str,
+        analysis: AnalysisModel,
         secondary_id: str,
         output_id: str,
         output_df: pl.DataFrame,
         extension: SupportedOutputExtension,
     ):
-        root_path = self._get_project_secondary_output_root_path(
-            project_id, analyzer_id, secondary_id
-        )
+        root_path = self._get_project_secondary_output_root_path(analysis, secondary_id)
         self._save_output(
             os.path.join(root_path, output_id),
             output_df,
@@ -166,44 +187,35 @@ class Storage:
             raise ValueError(f"Unsupported format: {extension}")
         return output_path
 
-    def load_project_primary_output(
-        self, project_id: str, analyzer_id: str, output_id: str
-    ):
-        output_path = self.get_primary_output_parquet_path(
-            project_id, analyzer_id, output_id
-        )
+    def load_project_primary_output(self, analysis: AnalysisModel, output_id: str):
+        output_path = self.get_primary_output_parquet_path(analysis, output_id)
         return pl.read_parquet(output_path)
 
-    def get_primary_output_parquet_path(
-        self, project_id: str, analyzer_id: str, output_id: str
-    ):
+    def get_primary_output_parquet_path(self, analysis: AnalysisModel, output_id: str):
         return os.path.join(
-            self._get_project_primary_output_root_path(project_id, analyzer_id),
+            self._get_project_primary_output_root_path(analysis),
             f"{output_id}.parquet",
         )
 
     def load_project_secondary_output(
-        self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str
+        self, analysis: AnalysisModel, secondary_id: str, output_id: str
     ):
         output_path = self.get_secondary_output_parquet_path(
-            project_id, analyzer_id, secondary_id, output_id
+            analysis, secondary_id, output_id
         )
         return pl.read_parquet(output_path)
 
     def get_secondary_output_parquet_path(
-        self, project_id: str, analyzer_id: str, secondary_id: str, output_id: str
+        self, analysis: AnalysisModel, secondary_id: str, output_id: str
     ):
         return os.path.join(
-            self._get_project_secondary_output_root_path(
-                project_id, analyzer_id, secondary_id
-            ),
+            self._get_project_secondary_output_root_path(analysis, secondary_id),
             f"{output_id}.parquet",
         )
 
     def export_project_primary_output(
         self,
-        project_id: str,
-        analyzer_id: str,
+        analysis: AnalysisModel,
         output_id: str,
         *,
         extension: SupportedOutputExtension,
@@ -211,10 +223,8 @@ class Storage:
         export_chunk_size: Optional[int] = None,
     ):
         return self._export_output(
-            self.get_primary_output_parquet_path(project_id, analyzer_id, output_id),
-            os.path.join(
-                self._get_project_exports_root_path(project_id, analyzer_id), output_id
-            ),
+            self.get_primary_output_parquet_path(analysis, output_id),
+            os.path.join(self._get_project_exports_root_path(analysis), output_id),
             extension=extension,
             spec=spec,
             export_chunk_size=export_chunk_size,
@@ -222,8 +232,7 @@ class Storage:
 
     def export_project_secondary_output(
         self,
-        project_id: str,
-        analyzer_id: str,
+        analysis: AnalysisModel,
         secondary_id: str,
         output_id: str,
         *,
@@ -232,7 +241,7 @@ class Storage:
         export_chunk_size: Optional[int] = None,
     ):
         exported_path = os.path.join(
-            self._get_project_exports_root_path(project_id, analyzer_id),
+            self._get_project_exports_root_path(analysis),
             (
                 secondary_id
                 if secondary_id == output_id
@@ -240,9 +249,7 @@ class Storage:
             ),
         )
         return self._export_output(
-            self.get_secondary_output_parquet_path(
-                project_id, analyzer_id, secondary_id, output_id
-            ),
+            self.get_secondary_output_parquet_path(analysis, secondary_id, output_id),
             exported_path,
             extension=extension,
             spec=spec,
@@ -279,44 +286,119 @@ class Storage:
             return f"{output_path}_[*].{extension}"
 
     def list_project_analyses(self, project_id: str):
-        project_path = self._get_project_path(project_id)
-        try:
-            analyzers = os.listdir(os.path.join(project_path, "analyzers"))
-            return analyzers
-        except FileNotFoundError:
-            return []
+        with self._lock_database():
+            q = Query()
+            analysis_models = self.db.search(
+                (q["class_"] == "analysis") & (q["project_id"] == project_id)
+            )
+        return [AnalysisModel(**analysis) for analysis in analysis_models]
 
-    def list_project_secondary_analyses(
-        self, project_id: str, analyzer_id: str
-    ) -> list[str]:
-        project_path = self._get_project_path(project_id)
+    def init_analysis(
+        self,
+        project_id: str,
+        display_name: str,
+        primary_analyzer_id: str,
+        column_mapping: dict[str, str],
+    ) -> AnalysisModel:
+        with self._lock_database():
+            analysis_id = self._find_unique_analysis_id(project_id, display_name)
+            analysis = AnalysisModel(
+                analysis_id=analysis_id,
+                project_id=project_id,
+                display_name=display_name,
+                primary_analyzer_id=primary_analyzer_id,
+                path=os.path.join("analysis", analysis_id),
+                column_mapping=column_mapping,
+                create_timestamp=datetime.now().timestamp(),
+                is_draft=True,
+            )
+            self.db.insert(analysis.model_dump())
+        return analysis
+
+    def save_analysis(self, analysis: AnalysisModel):
+        with self._lock_database():
+            q = Query()
+            self.db.update(
+                analysis.model_dump(),
+                (q["class_"] == "analysis")
+                & (q["project_id"] == analysis.project_id)
+                & (q["analysis_id"] == analysis.analysis_id),
+            )
+
+    def delete_analysis(self, analysis: AnalysisModel):
+        with self._lock_database():
+            q = Query()
+            self.db.remove(
+                (q["class_"] == "analysis")
+                & (q["project_id"] == analysis.project_id)
+                & (q["analysis_id"] == analysis.analysis_id)
+            )
+            analysis_path = os.path.join(
+                self._get_project_path(analysis.project_id), analysis.path
+            )
+            shutil.rmtree(analysis_path, ignore_errors=True)
+
+    def _find_unique_analysis_id(self, project_id: str, display_name: str):
+        return self._get_unique_name(
+            self._slugify_name(display_name),
+            lambda analysis_id: self._is_analysis_id_unique(project_id, analysis_id),
+        )
+
+    def _is_analysis_id_unique(self, project_id: str, analysis_id: str):
+        q = Query()
+        id_unique = not self.db.search(
+            (q["class_"] == "analysis")
+            & (q["project_id"] == project_id)
+            & (q["analysis_id"] == analysis_id)
+        )
+        dir_unique = not os.path.exists(
+            os.path.join(self._get_project_path(project_id), "analysis", analysis_id)
+        )
+        return id_unique and dir_unique
+
+    def _bootstrap_analyses_v1(self):
+        legacy_v1_analysis_dirname = "analyzers"
+        projects = self.list_projects()
+        for project in projects:
+            project_id = project.id
+            project_path = self._get_project_path(project_id)
+            try:
+                v1_analyses = os.listdir(
+                    os.path.join(project_path, legacy_v1_analysis_dirname)
+                )
+            except FileNotFoundError:
+                continue
+            for analyzer_id in v1_analyses:
+                db_analyzer_id = f"__v1__{analyzer_id}"
+                modified_time = os.path.getmtime(
+                    os.path.join(project_path, legacy_v1_analysis_dirname, analyzer_id)
+                )
+                self.db.upsert(
+                    AnalysisModel(
+                        analysis_id=db_analyzer_id,
+                        project_id=project_id,
+                        display_name=analyzer_id,
+                        primary_analyzer_id=analyzer_id,
+                        path=os.path.join(legacy_v1_analysis_dirname, analyzer_id),
+                        create_timestamp=modified_time,
+                    ).model_dump(),
+                    (Query()["class_"] == "analysis")
+                    & (Query()["project_id"] == project_id)
+                    & (Query()["analysis_id"] == db_analyzer_id),
+                )
+
+    def list_secondary_analyses(self, analysis: AnalysisModel) -> list[str]:
         try:
             analyzers = os.listdir(
                 os.path.join(
-                    project_path, "analyzers", analyzer_id, "secondary_outputs"
-                )
+                    self._get_project_path(analysis.project_id),
+                    analysis.path,
+                    "secondary_outputs",
+                ),
             )
             return analyzers
         except FileNotFoundError:
             return []
-
-    def _ensure_database_version(self):
-        """
-        Makes sure that we have the correct database version
-
-        This function will in future be extended to include any migration necessary
-        to allow interoperability between versions.
-        """
-        q = Query()
-        if self.db.search(q["class_"] == "version"):
-            stored_version = self.db.search(q["class_"] == "version")[0]["version"]
-            if stored_version != STORAGE_VERSION:
-                raise Exception(
-                    f"Storage version mismatch: expected {
-            STORAGE_VERSION}, got {stored_version}"
-                )
-        self.db.remove(q["class_"] == "version")
-        self.db.insert({"class_": "version", "version": STORAGE_VERSION})
 
     def _find_unique_project_id(self, display_name: str):
         """Turn the display name into a unique project ID"""
@@ -342,37 +424,32 @@ class Storage:
     def _get_project_input_path(self, project_id: str):
         return os.path.join(self._get_project_path(project_id), "input.parquet")
 
-    def _get_project_primary_output_root_path(self, project_id: str, analyzer_id: str):
+    def _get_project_primary_output_root_path(self, analysis: AnalysisModel):
         return os.path.join(
-            self._get_project_path(project_id),
-            "analyzers",
-            analyzer_id,
+            self._get_project_path(analysis.project_id),
+            analysis.path,
             "primary_outputs",
         )
 
     def _get_project_secondary_output_root_path(
-        self, project_id: str, analyzer_id: str, secondary_id: str
+        self, analysis: AnalysisModel, secondary_id: str
     ):
         return os.path.join(
-            self._get_project_path(project_id),
-            "analyzers",
-            analyzer_id,
+            self._get_project_path(analysis.project_id),
+            analysis.path,
             "secondary_outputs",
             secondary_id,
         )
 
-    def _get_project_exports_root_path(self, project_id: str, analyzer_id: str):
+    def _get_project_exports_root_path(self, analysis: AnalysisModel):
         return os.path.join(
-            self._get_project_path(project_id), "analyzers", analyzer_id, "exports"
+            self._get_project_path(analysis.project_id), analysis.path, "exports"
         )
 
-    def _get_web_presenter_state_path(
-        self, project_id: str, analyzer_id: str, presenter_id: str
-    ):
+    def _get_web_presenter_state_path(self, analysis: AnalysisModel, presenter_id: str):
         return os.path.join(
-            self._get_project_path(project_id),
-            "analyzers",
-            analyzer_id,
+            self._get_project_path(analysis.project_id),
+            analysis.path,
             "web_presenters",
             presenter_id,
             "state",

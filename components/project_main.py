@@ -1,5 +1,6 @@
 from colorama import Fore
 
+from analyzer_interface.suite import AnalyzerSuite
 from storage import Project, Storage
 from terminal_tools import draw_box, prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
@@ -9,7 +10,9 @@ from .new_analysis import new_analysis
 from .select_analysis import select_analysis
 
 
-def project_main(context: TerminalContext, storage: Storage, project: Project):
+def project_main(
+    context: TerminalContext, storage: Storage, suite: AnalyzerSuite, project: Project
+):
     while True:
         with context.nest(
             draw_box(f"CIB Mango Tree/Dataset: {project.display_name}", padding_lines=0)
@@ -29,18 +32,25 @@ def project_main(context: TerminalContext, storage: Storage, project: Project):
             return
 
         if action == "new_analysis":
-            analyzer = new_analysis(context, storage, project)
-            if analyzer is not None:
-                analysis_main(context, storage, project, analyzer)
+            analysis = new_analysis(context, storage, suite, project)
+            if analysis is not None:
+                analysis_main(context, storage, suite, analysis)
             continue
 
         if action == "select_analysis":
-            analyzer = select_analysis(context, storage, project)
-            if analyzer is not None:
-                analysis_main(context, storage, project, analyzer)
+            analysis = select_analysis(context, storage, suite, project)
+            if analysis is not None:
+                analysis_main(context, storage, suite, analysis)
             continue
 
         if action == "delete_project":
+            print(
+                f"⚠️  Warning  ⚠️\n\n"
+                f"This will permanently delete the imported dataset and all of its analyses, "
+                f"including all of their exported outputs.\n\n"
+                f"**Be sure to copy out any exports you want to keep before proceeding.**\n\n"
+                f"The original file used to create the dataset will NOT be deleted.\n\n"
+            )
             confirm = prompts.confirm(
                 "Are you sure you want to delete this dataset?", default=False
             )
