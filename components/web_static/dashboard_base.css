@@ -1,4 +1,24 @@
 body {
   margin: 20px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 20px;
+  margin: 0px;
+}
+
+#react-entry-point {
+  height: 100%;
+}
+
+h2 {
+  margin-block: 15px;
+}
+
+h2:first-child {
+  margin-top: 0px;
+}
+
+p {
+  margin-block: 10px;
 }
