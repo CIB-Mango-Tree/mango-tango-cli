@@ -1,3 +1,5 @@
+from colorama import Fore
+
 from analyzer_interface.suite import AnalyzerSuite
 from storage import AnalysisModel, Storage
 from terminal_tools import draw_box, open_directory_explorer, prompts, wait_for_key
@@ -22,7 +24,8 @@ def analysis_main(
                 choices=[
                     ("Open output directory", "open_output_dir"),
                     ("Export outputs", "export_output"),
-                    ("Launch Web Server", "web_server"),
+                    ("Rename", "rename"),
+                    ("Delete", "delete"),
                     ("(Back)", None),
                 ],
             )
@@ -43,3 +46,42 @@ def analysis_main(
         if action == "web_server":
             analysis_web_server(context, storage, suite, analysis)
             continue
+
+        if action == "rename":
+            new_name = prompts.text("Enter new name", default=analysis.display_name)
+            if new_name is None:
+                print("Rename canceled")
+                wait_for_key(True)
+                continue
+
+            analysis.display_name = new_name
+            storage.save_analysis(analysis)
+            print("Analysis renamed")
+            wait_for_key(True)
+            continue
+
+        if action == "delete":
+            print(
+                f"⚠️  Warning  ⚠️\n\n"
+                f"This will permanently delete the analysis and all its outputs, "
+                f"including the default export directory. "
+                f"**Be sure to copy out any exports you want to keep before proceeding.**\n\n"
+                f"The web dashboad will also no longer be accessible.\n\n"
+            )
+            confirm = prompts.confirm("Are you sure you want to delete this analysis?")
+            if not confirm:
+                print("Deletion canceled.")
+                wait_for_key(True)
+                continue
+
+            safephrase = f"DELETE {analysis.display_name}"
+            print(f"Type {Fore.RED}{safephrase}{Fore.RESET} to confirm deletion.")
+            if prompts.text(f"(type the above to confirm)") != safephrase:
+                print("Deletion canceled.")
+                wait_for_key(True)
+                continue
+
+            storage.delete_analysis(analysis)
+            print("🔥 Analysis deleted.")
+            wait_for_key(True)
+            return
