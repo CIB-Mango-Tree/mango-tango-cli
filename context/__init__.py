@@ -20,12 +20,12 @@ from analyzer_interface.context import (
 from analyzer_interface.context import TableReader, TableWriter
 from analyzer_interface.context import WebPresenterContext as BaseWebPresenterContext
 from preprocessing.series_semantic import SeriesSemantic
-from storage import Storage
+from storage import AnalysisModel, Storage
 
 
 class PrimaryAnalyzerContext(BasePrimaryAnalyzerContext):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
+    analysis: AnalysisModel
+    analyzer: AnalyzerInterface
     store: Storage
     input_columns: dict[str, "InputColumnProvider"]
 
@@ -34,25 +34,22 @@ class PrimaryAnalyzerContext(BasePrimaryAnalyzerContext):
 
     def input(self) -> InputTableReader:
         return PrimaryAnalyzerInputTableReader(
-            project_id=self.project_id,
-            analyzer=self.primary_analyzer,
+            project_id=self.analysis.project_id,
+            analyzer=self.analyzer,
             store=self.store,
             input_columns=self.input_columns,
         )
 
     def output(self, output_id: str) -> TableWriter:
         return PrimaryAnalyzerOutputWriter(
-            project_id=self.project_id,
-            analyzer=self.primary_analyzer,
+            analysis=self.analysis,
             output_id=output_id,
             store=self.store,
         )
 
     def prepare(self):
         os.makedirs(
-            self.store._get_project_primary_output_root_path(
-                self.project_id, self.primary_analyzer.id
-            ),
+            self.store._get_project_primary_output_root_path(self.analysis),
             exist_ok=True,
         )
 
@@ -63,8 +60,7 @@ class InputColumnProvider(BaseModel):
 
 
 class PrimaryAnalyzerOutputWriter(TableWriter, BaseModel):
-    project_id: str
-    analyzer: AnalyzerInterface
+    analysis: AnalysisModel
     output_id: str
     store: Storage
 
@@ -73,9 +69,7 @@ class PrimaryAnalyzerOutputWriter(TableWriter, BaseModel):
 
     @cached_property
     def parquet_path(self):
-        return self.store.get_primary_output_parquet_path(
-            self.project_id, self.analyzer.id, self.output_id
-        )
+        return self.store.get_primary_output_parquet_path(self.analysis, self.output_id)
 
 
 class PrimaryAnalyzerInputTableReader(InputTableReader, BaseModel):
@@ -103,8 +97,7 @@ class PrimaryAnalyzerInputTableReader(InputTableReader, BaseModel):
 
 
 class SecondaryAnalyzerContext(BaseSecondaryAnalyzerContext):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
+    analysis: AnalysisModel
     secondary_analyzer: SecondaryAnalyzerInterface
     store: Storage
     temp_dir: str
@@ -114,18 +107,13 @@ class SecondaryAnalyzerContext(BaseSecondaryAnalyzerContext):
 
     @cached_property
     def base(self) -> AssetsReader:
-        base_analyzer = self.secondary_analyzer.base_analyzer
-
         return PrimaryAnalyzerOutputReaderGroupContext(
-            project_id=self.project_id, analyzer=base_analyzer, store=self.store
+            analysis=self.analysis, store=self.store
         )
 
     def dependency(self, interface: SecondaryAnalyzerInterface) -> AssetsReader:
         return SecondaryAnalyzerOutputReaderGroupContext(
-            project_id=self.project_id,
-            primary_analyzer=self.primary_analyzer,
-            secondary_analyzer=interface,
-            store=self.store,
+            analysis=self.analysis, secondary_analyzer_id=interface.id, store=self.store
         )
 
     def temp_dir(self) -> str:
@@ -133,9 +121,8 @@ class SecondaryAnalyzerContext(BaseSecondaryAnalyzerContext):
 
     def output(self, output_id: str) -> TableWriter:
         return SecondaryAnalyzerOutputWriter(
-            project_id=self.project_id,
-            primary_analyzer=self.primary_analyzer,
-            secondary_analyzer=self.secondary_analyzer,
+            analysis=self.analysis,
+            secondary_analyzer_id=self.secondary_analyzer.id,
             output_id=output_id,
             store=self.store,
         )
@@ -143,17 +130,14 @@ class SecondaryAnalyzerContext(BaseSecondaryAnalyzerContext):
     def prepare(self):
         os.makedirs(
             self.store._get_project_secondary_output_root_path(
-                self.project_id,
-                self.primary_analyzer.id,
-                self.secondary_analyzer.id,
+                self.analysis, self.secondary_analyzer.id
             ),
             exist_ok=True,
         )
 
 
 class WebPresenterContext(BaseWebPresenterContext):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
+    analysis: AnalysisModel
     web_presenter: WebPresenterInterface
     store: Storage
     dash_app: Dash
@@ -164,27 +148,25 @@ class WebPresenterContext(BaseWebPresenterContext):
     @cached_property
     def base(self) -> AssetsReader:
         return PrimaryAnalyzerOutputReaderGroupContext(
-            project_id=self.project_id, analyzer=self.primary_analyzer, store=self.store
+            analysis=self.analysis, store=self.store
         )
 
     def dependency(self, interface: SecondaryAnalyzerInterface) -> AssetsReader:
         return SecondaryAnalyzerOutputReaderGroupContext(
-            project_id=self.project_id,
-            primary_analyzer=self.primary_analyzer,
-            secondary_analyzer=interface,
+            analysis=self.analysis,
+            secondary_analyzer_id=interface.id,
             store=self.store,
         )
 
     @cached_property
     def state_dir(self) -> str:
-        return self.store.get_web_presenter_state_path(
-            self.project_id, self.primary_analyzer.id, self.web_presenter.id
+        return self.store._get_web_presenter_state_path(
+            self.analysis.project_id, self.web_presenter.id
         )
 
 
 class PrimaryAnalyzerOutputReaderGroupContext(AssetsReader, BaseModel):
-    analyzer: AnalyzerInterface
-    project_id: str
+    analysis: AnalysisModel
     store: Storage
 
     class Config:
@@ -192,16 +174,12 @@ class PrimaryAnalyzerOutputReaderGroupContext(AssetsReader, BaseModel):
 
     def table(self, output_id: str) -> TableReader:
         return PrimaryAnalyzerOutputTableReader(
-            project_id=self.project_id,
-            analyzer=self.analyzer,
-            output_id=output_id,
-            store=self.store,
+            analysis=self.analysis, output_id=output_id, store=self.store
         )
 
 
 class PrimaryAnalyzerOutputTableReader(TableReader, BaseModel):
-    project_id: str
-    analyzer: AnalyzerInterface
+    analysis: AnalysisModel
     output_id: str
     store: Storage
 
@@ -210,15 +188,12 @@ class PrimaryAnalyzerOutputTableReader(TableReader, BaseModel):
 
     @cached_property
     def parquet_path(self):
-        return self.store.get_primary_output_parquet_path(
-            self.project_id, self.analyzer.id, self.output_id
-        )
+        return self.store.get_primary_output_parquet_path(self.analysis, self.output_id)
 
 
 class SecondaryAnalyzerOutputReaderGroupContext(AssetsReader, BaseModel):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
-    secondary_analyzer: SecondaryAnalyzerInterface
+    analysis: AnalysisModel
+    secondary_analyzer_id: str
     store: Storage
 
     class Config:
@@ -226,18 +201,16 @@ class SecondaryAnalyzerOutputReaderGroupContext(AssetsReader, BaseModel):
 
     def table(self, output_id: str) -> TableReader:
         return SecondaryAnalyzerOutputTableReader(
-            project_id=self.project_id,
-            primary_analyzer=self.primary_analyzer,
-            secondary_analyzer=self.secondary_analyzer,
+            analysis=self.analysis,
+            secondary_analyzer_id=self.secondary_analyzer_id,
             output_id=output_id,
             store=self.store,
         )
 
 
 class SecondaryAnalyzerOutputTableReader(TableReader, BaseModel):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
-    secondary_analyzer: SecondaryAnalyzerInterface
+    analysis: AnalysisModel
+    secondary_analyzer_id: str
     output_id: str
     store: Storage
 
@@ -247,17 +220,13 @@ class SecondaryAnalyzerOutputTableReader(TableReader, BaseModel):
     @cached_property
     def parquet_path(self):
         return self.store.get_secondary_output_parquet_path(
-            self.project_id,
-            self.primary_analyzer.id,
-            self.secondary_analyzer.id,
-            self.output_id,
+            self.analysis, self.secondary_analyzer_id, self.output_id
         )
 
 
 class SecondaryAnalyzerOutputWriter(TableWriter, BaseModel):
-    project_id: str
-    primary_analyzer: AnalyzerInterface
-    secondary_analyzer: SecondaryAnalyzerInterface
+    analysis: AnalysisModel
+    secondary_analyzer_id: str
     output_id: str
     store: Storage
 
@@ -267,8 +236,5 @@ class SecondaryAnalyzerOutputWriter(TableWriter, BaseModel):
     @cached_property
     def parquet_path(self):
         return self.store.get_secondary_output_parquet_path(
-            self.project_id,
-            self.primary_analyzer.id,
-            self.secondary_analyzer.id,
-            self.output_id,
+            self.analysis, self.secondary_analyzer_id, self.output_id
         )

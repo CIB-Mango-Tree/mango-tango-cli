@@ -9,8 +9,8 @@ from analyzer_interface import (
     AnalyzerOutput,
     SecondaryAnalyzerInterface,
 )
-from analyzers import suite
-from storage import Project, Storage, SupportedOutputExtension
+from analyzer_interface.suite import AnalyzerSuite
+from storage import AnalysisModel, Storage, SupportedOutputExtension
 from terminal_tools import (
     ProgressReporter,
     open_directory_explorer,
@@ -24,14 +24,15 @@ from terminal_tools.progress import ProgressReporter
 def export_outputs(
     context: TerminalContext,
     storage: Storage,
-    project: Project,
-    analyzer: AnalyzerInterface,
+    suite: AnalyzerSuite,
+    analysis: AnalysisModel,
     *,
     all=False,
 ):
+    analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
     with context.nest("[Export Output]\n\n") as scope:
         outputs = sorted(
-            get_all_exportable_outputs(storage, project, analyzer),
+            get_all_exportable_outputs(storage, suite, analysis),
             key=lambda output: (
                 "0" if output.secondary is None else "1_" + output.secondary.name,
                 output.output.name,
@@ -64,19 +65,17 @@ def export_outputs(
             return
 
         scope.refresh()
-        export_outputs_sequence(storage, project, analyzer, selected_outputs, format)
+        export_outputs_sequence(storage, analysis, selected_outputs, format)
 
 
 def export_outputs_sequence(
     storage: Storage,
-    project: Project,
-    analyzer: AnalyzerInterface,
+    analysis: AnalysisModel,
     selected_outputs: list["Output"],
     format: SupportedOutputExtension,
 ):
     has_large_dfs = any(
-        output.height(project.id, analyzer.id, storage) > 50_000
-        for output in selected_outputs
+        output.height(analysis, storage) > 50_000 for output in selected_outputs
     )
 
     export_chunk_size = None
@@ -122,8 +121,7 @@ def export_outputs_sequence(
     for selected_output in selected_outputs:
         with ProgressReporter(f"Exporting {selected_output.name}") as progress:
             export_progress = selected_output.export(
-                project.id,
-                analyzer.id,
+                analysis,
                 storage,
                 format=format,
                 export_chunk_size=export_chunk_size,
@@ -140,9 +138,7 @@ def export_outputs_sequence(
     if prompts.confirm(
         "Would you like to open the containing directory?", default=True
     ):
-        open_directory_explorer(
-            storage._get_project_exports_root_path(project.id, analyzer.id)
-        )
+        open_directory_explorer(storage._get_project_exports_root_path(analysis))
         print("Directory opened")
     else:
         print("All done!")
@@ -163,8 +159,9 @@ def export_format_prompt():
 
 
 def get_all_exportable_outputs(
-    storage: Storage, project: Project, analyzer: AnalyzerInterface
+    storage: Storage, suite: AnalyzerSuite, analysis: AnalysisModel
 ):
+    analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
     return [
         *(
             Output(output=output, secondary=None)
@@ -173,12 +170,10 @@ def get_all_exportable_outputs(
         ),
         *(
             Output(output=output, secondary=secondary)
-            for secondary_id in storage.list_project_secondary_analyses(
-                project.id, analyzer.id
-            )
+            for secondary_id in storage.list_secondary_analyses(analysis)
             if (
                 secondary := suite.get_secondary_analyzer_by_id(
-                    analyzer.id, secondary_id
+                    analysis.primary_analyzer_id, secondary_id
                 )
             )
             is not None
@@ -200,8 +195,7 @@ class Output(BaseModel):
 
     def export(
         self,
-        project_id: str,
-        analyzer_id: str,
+        analysis: AnalysisModel,
         storage: Storage,
         *,
         format: SupportedOutputExtension,
@@ -209,8 +203,7 @@ class Output(BaseModel):
     ):
         if self.secondary is None:
             return storage.export_project_primary_output(
-                project_id,
-                analyzer_id,
+                analysis,
                 self.output.id,
                 extension=format,
                 spec=self.output,
@@ -218,8 +211,7 @@ class Output(BaseModel):
             )
         else:
             return storage.export_project_secondary_output(
-                project_id,
-                analyzer_id,
+                analysis,
                 self.secondary.id,
                 self.output.id,
                 extension=format,
@@ -227,17 +219,15 @@ class Output(BaseModel):
                 export_chunk_size=export_chunk_size,
             )
 
-    def height(self, project_id: str, analyzer_id: str, storage: Storage):
+    def height(self, analysis: AnalysisModel, storage: Storage):
         if self.secondary is None:
             return self.df_height(
-                storage.get_primary_output_parquet_path(
-                    project_id, analyzer_id, self.output.id
-                )
+                storage.get_primary_output_parquet_path(analysis, self.output.id)
             )
         else:
             return self.df_height(
                 storage.get_secondary_output_parquet_path(
-                    project_id, analyzer_id, self.secondary.id, self.output.id
+                    analysis, self.secondary.id, self.output.id
                 )
             )
 

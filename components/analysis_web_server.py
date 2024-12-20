@@ -7,10 +7,9 @@ from dash import Dash
 from flask import Flask, render_template
 from waitress import serve
 
-from analyzer_interface import AnalyzerInterface
-from analyzers import suite
+from analyzer_interface.suite import AnalyzerSuite
 from context import WebPresenterContext
-from storage import Project, Storage
+from storage import AnalysisModel, Storage
 from terminal_tools import wait_for_key
 from terminal_tools.inception import TerminalContext
 
@@ -18,9 +17,12 @@ from terminal_tools.inception import TerminalContext
 def analysis_web_server(
     context: TerminalContext,
     storage: Storage,
-    project: Project,
-    analyzer: AnalyzerInterface,
+    suite: AnalyzerSuite,
+    analysis: AnalysisModel,
 ):
+    analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
+    project = storage.get_project(analysis.project_id)
+
     # These paths need to be resolved at runtime in order to run with
     # pyinstaller bundle
     parent_path = str(Path(__file__).resolve().parent)
@@ -46,8 +48,7 @@ def analysis_web_server(
         )
         temp_dir = tempfile.TemporaryDirectory()
         presenter_context = WebPresenterContext(
-            project_id=project.id,
-            primary_analyzer=analyzer,
+            analysis=analysis,
             web_presenter=presenter,
             store=storage,
             temp_dir=temp_dir.name,
@@ -62,7 +63,7 @@ def analysis_web_server(
         return render_template(
             "index.html",
             panels=[(presenter.id, presenter.name) for presenter in web_presenters],
-            project_name=project.display_name,
+            project_name=project.display_name if project else "(Unknown Project)",
             analyzer_name=analyzer.name,
         )
 
