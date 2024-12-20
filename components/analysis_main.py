@@ -18,16 +18,30 @@ def analysis_main(
     while True:
         analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
         has_web_server = suite.find_web_presenters(analyzer)
+        is_draft = analysis.is_draft
 
         with context.nest(
             draw_box(f"Analysis: {analysis.display_name}", padding_lines=0)
         ):
+            if is_draft:
+                print("⚠️  This analysis didn't complete successfully.  ⚠️")
+
             action = prompts.list_input(
                 "What would you like to do?",
                 choices=[
-                    ("Open output directory", "open_output_dir"),
-                    ("Export outputs", "export_output"),
-                    *([("Launch Web Server", "web_server")] if has_web_server else []),
+                    *(
+                        [
+                            ("Open output directory", "open_output_dir"),
+                            ("Export outputs", "export_output"),
+                        ]
+                        if not is_draft
+                        else []
+                    ),
+                    *(
+                        [("Launch Web Server", "web_server")]
+                        if (not is_draft) and has_web_server
+                        else []
+                    ),
                     ("Rename", "rename"),
                     ("Delete", "delete"),
                     ("(Back)", None),
