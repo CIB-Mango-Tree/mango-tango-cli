@@ -1,0 +1,42 @@
+name: Code Quality Checks
+
+on: pull_request
+
+jobs:
+  code_format:
+    name: Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+          key: linux-pip-dev-${{ hashFiles('requirements-dev.txt') }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run code formatter
+        run: isort . && black .
+
+      - name: Assert that the codebase has no dif
+        shell: bash
+        run: |
+          if [[ -n "$(git status --short | grep '^ [^\s]\|??')" ]]; then
+            echo "Unstaged/untracked files exist"
+            git status
+            git --no-pager diff
+            echo "Auto formatting hasn't been applied by the codebase."
+            exit 1
+          fi

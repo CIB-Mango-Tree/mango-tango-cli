@@ -25,8 +25,4 @@ fi
 echo "Installing dependencies from requirements-dev.txt..."
 pip install -r "$REQUIREMENTS_FILE"
 
-# Activate pre-commit hooks
-echo "Installing pre-commit hooks..."
-pre-commit install
-
 echo "Bootstrap process complete."
