@@ -28,8 +28,4 @@ if (-Not (Test-Path $requirements_file)) {
 Write-Host "Installing dependencies from requirements-dev.txt..."
 pip install -r $requirements_file
 
-# Activate pre-commit hooks
-Write-Host "Installing pre-commit hooks..."
-pre-commit install
-
 Write-Host "Bootstrap process complete."
