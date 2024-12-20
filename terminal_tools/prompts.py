@@ -161,7 +161,7 @@ def int_input(
 
         return True
 
-    return wrap_keyboard_interrupt(
+    result = wrap_keyboard_interrupt(
         lambda: inquirer_text(
             message,
             validate=lambda previous_answers, value: validate_value(value),
@@ -169,6 +169,7 @@ def int_input(
         ),
         None,
     )
+    return int(result) if result is not None else None
 
 
 def wrap_keyboard_interrupt(fn, fallback=None):
