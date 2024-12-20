@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Optional
 
-from analyzers import suite
+from analyzer_interface.suite import AnalyzerSuite
 from storage import AnalysisModel, Project, Storage
 from terminal_tools import prompts, wait_for_key
 from terminal_tools.inception import TerminalContext
 
 
 def select_analysis(
-    context: TerminalContext, storage: Storage, project: Project
+    context: TerminalContext, storage: Storage, suite: AnalyzerSuite, project: Project
 ) -> Optional[AnalysisModel]:
     now = datetime.now()
     analysis_options = sorted(
