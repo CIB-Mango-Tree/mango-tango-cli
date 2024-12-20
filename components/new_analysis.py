@@ -155,7 +155,7 @@ def new_analysis(
                 )
 
                 if selected_analyzer_column is None:
-                    break
+                    continue
 
                 column_mapping_scope.refresh()
                 print("You are re-assigning data for this test input column:")
