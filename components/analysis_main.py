@@ -16,6 +16,9 @@ def analysis_main(
     analysis: AnalysisModel,
 ):
     while True:
+        analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
+        has_web_server = suite.find_web_presenters(analyzer)
+
         with context.nest(
             draw_box(f"Analysis: {analysis.display_name}", padding_lines=0)
         ):
@@ -24,6 +27,7 @@ def analysis_main(
                 choices=[
                     ("Open output directory", "open_output_dir"),
                     ("Export outputs", "export_output"),
+                    *([("Launch Web Server", "web_server")] if has_web_server else []),
                     ("Rename", "rename"),
                     ("Delete", "delete"),
                     ("(Back)", None),
