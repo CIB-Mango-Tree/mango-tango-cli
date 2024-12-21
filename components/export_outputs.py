@@ -1,56 +1,44 @@
 import os
-from typing import Optional
 
-import polars as pl
-from pydantic import BaseModel
-
-from analyzer_interface import (
-    AnalyzerInterface,
-    AnalyzerOutput,
-    SecondaryAnalyzerInterface,
-)
-from analyzer_interface.suite import AnalyzerSuite
-from storage import AnalysisModel, Storage, SupportedOutputExtension
+from app import AnalysisContext, AnalysisOutputContext
+from storage import SupportedOutputExtension
 from terminal_tools import (
     ProgressReporter,
     open_directory_explorer,
     prompts,
     wait_for_key,
 )
-from terminal_tools.inception import TerminalContext
 from terminal_tools.progress import ProgressReporter
 
+from .context import ViewContext
 
-def export_outputs(
-    context: TerminalContext,
-    storage: Storage,
-    suite: AnalyzerSuite,
-    analysis: AnalysisModel,
-    *,
-    all=False,
-):
-    analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
-    with context.nest("[Export Output]\n\n") as scope:
+
+def export_outputs(context: ViewContext, analysis: AnalysisContext):
+    terminal = context.terminal
+    with terminal.nest("[Export Output]\n\n") as scope:
         outputs = sorted(
-            get_all_exportable_outputs(storage, suite, analysis),
+            analysis.get_all_exportable_outputs(),
             key=lambda output: (
-                "0" if output.secondary is None else "1_" + output.secondary.name,
-                output.output.name,
+                (
+                    "0"
+                    if output.secondary_spec is None
+                    else "1_" + output.secondary_spec.name
+                ),
+                output.descriptive_qualified_name,
             ),
         )
 
-        if all:
-            selected_outputs = outputs
-        else:
-            output_options = [(output.name, output) for output in outputs]
-            if not output_options:
-                print("There are no outputs for this analysis")
-                wait_for_key(True)
-                return
+        output_options = [
+            (output.descriptive_qualified_name, output) for output in outputs
+        ]
+        if not output_options:
+            print("There are no outputs for this analysis")
+            wait_for_key(True)
+            return
 
-            selected_outputs: list[Output] = prompts.checkbox(
-                "Choose output(s) to export", choices=output_options
-            )
+        selected_outputs: list[AnalysisOutputContext] = prompts.checkbox(
+            "Choose output(s) to export", choices=output_options
+        )
 
         if not selected_outputs:
             print("Export cancelled")
@@ -65,22 +53,19 @@ def export_outputs(
             return
 
         scope.refresh()
-        export_outputs_sequence(storage, analysis, selected_outputs, format)
+        export_outputs_sequence(context, analysis, selected_outputs, format)
 
 
 def export_outputs_sequence(
-    storage: Storage,
-    analysis: AnalysisModel,
-    selected_outputs: list["Output"],
+    context: ViewContext,
+    analysis: AnalysisContext,
+    selected_outputs: list[AnalysisOutputContext],
     format: SupportedOutputExtension,
 ):
-    has_large_dfs = any(
-        output.height(analysis, storage) > 50_000 for output in selected_outputs
-    )
+    has_large_dfs = any(output.num_rows > 50_000 for output in selected_outputs)
 
-    export_chunk_size = None
+    settings = context.app.context.settings
     if has_large_dfs:
-        settings = storage.get_settings()
         if settings.export_chunk_size is None:
             print(f"Some of your exports will have more than 50,000 rows.")
             print(f"Let's take a moment to consider how you would like to proceed.")
@@ -106,26 +91,19 @@ def export_outputs_sequence(
                     )
                     if export_chunk_size is None:
                         continue
-
-                    storage.save_settings(export_chunk_size=export_chunk_size)
+                    settings.set_export_chunk_size(export_chunk_size)
                     break
 
                 if chunk_action == "whole":
-                    storage.save_settings(export_chunk_size=False)
+                    settings.set_export_chunk_size(False)
                     break
-
-        else:
-            export_chunk_size = settings.export_chunk_size or None
 
     print("Beginning export...")
     for selected_output in selected_outputs:
-        with ProgressReporter(f"Exporting {selected_output.name}") as progress:
-            export_progress = selected_output.export(
-                analysis,
-                storage,
-                format=format,
-                export_chunk_size=export_chunk_size,
-            )
+        with ProgressReporter(
+            f"Exporting {selected_output.descriptive_qualified_name}"
+        ) as progress:
+            export_progress = selected_output.export(format=format)
             try:
                 while True:
                     progress.update(next(export_progress))
@@ -138,7 +116,7 @@ def export_outputs_sequence(
     if prompts.confirm(
         "Would you like to open the containing directory?", default=True
     ):
-        open_directory_explorer(storage._get_project_exports_root_path(analysis))
+        open_directory_explorer(analysis.export_root_path)
         print("Directory opened")
     else:
         print("All done!")
@@ -156,81 +134,3 @@ def export_format_prompt():
             ("(Back)", None),
         ],
     )
-
-
-def get_all_exportable_outputs(
-    storage: Storage, suite: AnalyzerSuite, analysis: AnalysisModel
-):
-    analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
-    return [
-        *(
-            Output(output=output, secondary=None)
-            for output in analyzer.outputs
-            if not output.internal
-        ),
-        *(
-            Output(output=output, secondary=secondary)
-            for secondary_id in storage.list_secondary_analyses(analysis)
-            if (
-                secondary := suite.get_secondary_analyzer_by_id(
-                    analysis.primary_analyzer_id, secondary_id
-                )
-            )
-            is not None
-            for output in secondary.outputs
-            if not output.internal
-        ),
-    ]
-
-
-class Output(BaseModel):
-    output: AnalyzerOutput
-    secondary: Optional[SecondaryAnalyzerInterface]
-
-    @property
-    def name(self):
-        return (
-            f"{self.output.name} ({self.secondary.name if self.secondary else 'Base'})"
-        )
-
-    def export(
-        self,
-        analysis: AnalysisModel,
-        storage: Storage,
-        *,
-        format: SupportedOutputExtension,
-        export_chunk_size: Optional[int] = None,
-    ):
-        if self.secondary is None:
-            return storage.export_project_primary_output(
-                analysis,
-                self.output.id,
-                extension=format,
-                spec=self.output,
-                export_chunk_size=export_chunk_size,
-            )
-        else:
-            return storage.export_project_secondary_output(
-                analysis,
-                self.secondary.id,
-                self.output.id,
-                extension=format,
-                spec=self.output,
-                export_chunk_size=export_chunk_size,
-            )
-
-    def height(self, analysis: AnalysisModel, storage: Storage):
-        if self.secondary is None:
-            return self.df_height(
-                storage.get_primary_output_parquet_path(analysis, self.output.id)
-            )
-        else:
-            return self.df_height(
-                storage.get_secondary_output_parquet_path(
-                    analysis, self.secondary.id, self.output.id
-                )
-            )
-
-    @staticmethod
-    def df_height(path: str) -> int:
-        return pl.scan_parquet(path).select(pl.len()).collect().item()

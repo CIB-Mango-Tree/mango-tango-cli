@@ -17,13 +17,13 @@ from analyzer_interface.interface import AnalyzerOutput
 from .file_selector import FileSelectorStateManager
 
 
-class Project(BaseModel):
+class ProjectModel(BaseModel):
     class_: Literal["project"] = "project"
     id: str
     display_name: str
 
 
-class Settings(BaseModel):
+class SettingsModel(BaseModel):
     class_: Literal["settings"] = "settings"
     export_chunk_size: Optional[int | Literal[False]] = None
 
@@ -42,7 +42,7 @@ class AnalysisModel(BaseModel):
     path: str
     column_mapping: Optional[dict[str, str]] = None
     create_timestamp: Optional[float] = None
-    is_draft: Optional[bool] = False
+    is_draft: bool = False
 
     def create_time(self):
         return (
@@ -72,7 +72,7 @@ class Storage:
     def init_project(self, *, display_name: str, input_temp_file: str):
         with self._lock_database():
             project_id = self._find_unique_project_id(display_name)
-            project = Project(id=project_id, display_name=display_name)
+            project = ProjectModel(id=project_id, display_name=display_name)
             self.db.insert(project.model_dump())
 
         project_dir = self._get_project_path(project_id)
@@ -85,7 +85,7 @@ class Storage:
         q = Query()
         projects = self.db.search(q["class_"] == "project")
         return sorted(
-            (Project(**project) for project in projects),
+            (ProjectModel(**project) for project in projects),
             key=lambda project: project.display_name,
         )
 
@@ -93,7 +93,7 @@ class Storage:
         q = Query()
         project = self.db.search((q["class_"] == "project") & (q["id"] == project_id))
         if project:
-            return Project(**project[0])
+            return ProjectModel(**project[0])
         return None
 
     def delete_project(self, project_id: str):
@@ -265,13 +265,19 @@ class Storage:
         spec: AnalyzerOutput,
         export_chunk_size: Optional[int] = None,
     ):
-        if not export_chunk_size:
+        with pq.ParquetFile(input_path) as reader:
+            num_chunks = (
+                math.ceil(reader.metadata.num_rows / export_chunk_size)
+                if export_chunk_size
+                else 1
+            )
+
+        if num_chunks == 1:
             df = pl.scan_parquet(input_path)
             self._save_output(output_path, spec.transform_output(df), extension)
             return f"{output_path}.{extension}"
 
         with pq.ParquetFile(input_path) as reader:
-            num_chunks = math.ceil(reader.metadata.num_rows / export_chunk_size)
             get_batches = (
                 df
                 for batch in reader.iter_batches()
@@ -471,17 +477,19 @@ class Storage:
         q = Query()
         settings = self.db.search(q["class_"] == "settings")
         if settings:
-            return Settings(**settings[0])
-        return Settings()
+            return SettingsModel(**settings[0])
+        return SettingsModel()
 
     def save_settings(self, **kwargs):
         with self._lock_database():
             q = Query()
             settings = self._get_settings()
-            new_settings = Settings(
+            new_settings = SettingsModel(
                 **{
                     **settings.model_dump(),
-                    **kwargs,
+                    **{
+                        key: value for key, value in kwargs.items() if value is not None
+                    },
                 }
             )
             self.db.upsert(new_settings.model_dump(), q["class_"] == "settings")

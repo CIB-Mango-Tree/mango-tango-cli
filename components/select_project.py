@@ -1,20 +1,24 @@
-from storage import Project, Storage
-from terminal_tools import draw_box, prompts, wait_for_key
-from terminal_tools.inception import TerminalContext
+from typing import Optional
 
-from .utils import input_preview
+from app import ProjectContext
+from terminal_tools import draw_box, print_ascii_table, prompts, wait_for_key
+
+from .context import ViewContext
 
 
-def select_project(context: TerminalContext, storage: Storage):
+def select_project(ctx: ViewContext):
+    terminal = ctx.terminal
+    app = ctx.app
+
     while True:
-        with context.nest(draw_box("Choose a project", padding_lines=0)):
-            projects = storage.list_projects()
+        with terminal.nest(draw_box("Choose a project", padding_lines=0)):
+            projects = app.list_projects()
             if not projects:
                 print("There are no previously created projects.")
                 wait_for_key(True)
                 return None
 
-            project = prompts.list_input(
+            project: Optional[ProjectContext] = prompts.list_input(
                 "Which project?",
                 choices=[(project.display_name, project) for project in projects],
             )
@@ -22,12 +26,36 @@ def select_project(context: TerminalContext, storage: Storage):
             if project is None:
                 return None
 
-        with context.nest(
+        with terminal.nest(
             draw_box(f"Project: {project.display_name}", padding_lines=0)
         ):
-            df = storage.load_project_input(project.id, n_records=100)
-            table_stats = storage.get_project_input_stats(project.id)
-            input_preview(df, table_stats)
+            df = project.preview_data
+            print_ascii_table(
+                [
+                    [preview_value(cell) for cell in row]
+                    for row in df.head(10).iter_rows()
+                ],
+                header=df.columns,
+            )
+            print(f"(Total {project.data_row_count} rows)")
+            print("Inferred column semantics:")
+            print_ascii_table(
+                rows=[
+                    [col.name, col.semantic.semantic_name] for col in project.columns
+                ],
+                header=["Column", "Semantic"],
+            )
+
             confirm_load = prompts.confirm("Load this project?", default=True)
             if confirm_load:
-                return Project(id=project.id, display_name=project.display_name)
+                return project
+
+
+def preview_value(value):
+    if isinstance(value, str):
+        if len(value) > 20:
+            return value[:20] + "..."
+        return value
+    if value is None:
+        return "(N/A)"
+    return value

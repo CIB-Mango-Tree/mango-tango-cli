@@ -1,21 +1,20 @@
 from sys import exit
 
-from analyzer_interface.suite import AnalyzerSuite
-from storage import Storage
 from terminal_tools import draw_box, prompts
-from terminal_tools.inception import TerminalContext
 
 from .analysis_main import analysis_main
+from .context import ViewContext
 from .new_analysis import new_analysis
 from .new_project import new_project
 from .project_main import project_main
 from .select_project import select_project
 
 
-def main_menu(context: TerminalContext, storage: Storage, suite: AnalyzerSuite):
+def main_menu(context: ViewContext):
+    terminal = context.terminal
     while True:
         exit_instruction = "⟪ Hit Ctrl+C at any time to exit a menu ⟫"
-        with context.nest(draw_box("CIB Mango Tree") + "\n" + exit_instruction + "\n"):
+        with terminal.nest(draw_box("CIB Mango Tree") + "\n" + exit_instruction + "\n"):
             action = prompts.list_input(
                 "What would you like to do?",
                 choices=[
@@ -30,26 +29,26 @@ def main_menu(context: TerminalContext, storage: Storage, suite: AnalyzerSuite):
             exit(0)
 
         if action == "new_project":
-            with context.nest(
+            with terminal.nest(
                 draw_box("CIB Mango Tree: New Dataset") + "\n" + exit_instruction + "\n"
             ):
-                project = new_project(context, storage)
+                project = new_project(context)
 
             if project is not None:
-                analysis = new_analysis(context, storage, suite, project)
+                analysis = new_analysis(context, project)
                 if analysis is not None:
-                    analysis_main(context, storage, suite, analysis)
-                project_main(context, storage, suite, project)
+                    analysis_main(context, analysis)
+                project_main(context, project)
             continue
 
         if action == "load_project":
-            with context.nest(
+            with terminal.nest(
                 draw_box("CIB Mango Tree: Load Dataset")
                 + "\n"
                 + exit_instruction
                 + "\n"
             ):
-                project = select_project(context, storage)
+                project = select_project(context)
             if project is not None:
-                project_main(context, storage, suite, project)
+                project_main(context, project)
             continue

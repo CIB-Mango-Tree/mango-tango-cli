@@ -1,4 +1,3 @@
-import tempfile
 from traceback import format_exc
 from typing import Optional
 
@@ -11,35 +10,27 @@ from analyzer_interface import (
     column_automap,
     get_data_type_compatibility_score,
 )
-from analyzer_interface.suite import AnalyzerSuite
-from context import (
-    InputColumnProvider,
-    PrimaryAnalyzerContext,
-    SecondaryAnalyzerContext,
-)
-from storage import Project, Storage
+from app import ProjectContext
 from terminal_tools import draw_box, print_ascii_table, prompts, wait_for_key
-from terminal_tools.inception import TerminalContext
 
-from .export_outputs import (
-    export_format_prompt,
-    export_outputs_sequence,
-    get_all_exportable_outputs,
-)
-from .utils import get_user_columns
+from .context import ViewContext
+from .export_outputs import export_format_prompt, export_outputs_sequence
 
 
 def new_analysis(
-    context: TerminalContext, storage: Storage, suite: AnalyzerSuite, project: Project
+    context: ViewContext,
+    project: ProjectContext,
 ):
-    with context.nest(draw_box("Choose a test", padding_lines=0)):
+    terminal = context.terminal
+    analyzers = context.app.context.suite.primary_anlyzers
+    with terminal.nest(draw_box("Choose a test", padding_lines=0)):
         analyzer: Optional[AnalyzerInterface] = prompts.list_input(
             "Which test?",
             choices=[
                 ("(Back)", None),
                 *(
                     (f"{analyzer.name} ({analyzer.short_description})", analyzer)
-                    for analyzer in suite.primary_anlyzers
+                    for analyzer in analyzers
                 ),
             ],
         )
@@ -47,8 +38,8 @@ def new_analysis(
     if analyzer is None:
         return
 
-    with context.nest(draw_box(analyzer.name, padding_lines=0)):
-        with context.nest("◆◆ About this test ◆◆"):
+    with terminal.nest(draw_box(analyzer.name, padding_lines=0)):
+        with terminal.nest("◆◆ About this test ◆◆"):
 
             print("")
             print(analyzer.long_description or analyzer.short_description)
@@ -64,8 +55,7 @@ def new_analysis(
                 print(input_column.description or "")
                 print("")
 
-            sample_project_df = storage.load_project_input(project.id, n_records=100)
-            user_columns = get_user_columns(sample_project_df)
+            user_columns = project.columns
             user_columns_by_name = {
                 user_column.name: user_column for user_column in user_columns
             }
@@ -98,7 +88,7 @@ def new_analysis(
 
         final_column_mapping = draft_column_mapping
         while True:
-            with context.nest("Column mapping") as column_mapping_scope:
+            with terminal.nest("Column mapping") as column_mapping_scope:
                 print_ascii_table(
                     rows=[
                         [
@@ -198,52 +188,18 @@ def new_analysis(
                         selected_user_column.name
                     )
 
-        analysis = storage.init_analysis(
-            project.id,
-            analyzer.name,
-            analyzer.id,
-            final_column_mapping,
-        )
+        analysis = project.create_analysis(analyzer.id, final_column_mapping)
 
-        with context.nest("Analysis") as run_scope:
+        with terminal.nest("Analysis") as run_scope:
             is_export_started = False
             try:
-                print("Starting base analysis for the test...")
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    analyzer_context = PrimaryAnalyzerContext(
-                        analysis=analysis,
-                        analyzer=analyzer,
-                        store=storage,
-                        temp_dir=temp_dir,
-                        input_columns={
-                            analyzer_column_name: InputColumnProvider(
-                                user_column_name=user_column_name,
-                                semantic=user_columns_by_name[
-                                    user_column_name
-                                ].semantic,
-                            )
-                            for analyzer_column_name, user_column_name in final_column_mapping.items()
-                        },
-                    )
-                    analyzer_context.prepare()
-                    analyzer.entry_point(analyzer_context)
-
-                for secondary in suite.find_toposorted_secondary_analyzers(analyzer):
-                    run_scope.refresh()
-                    print("Running post-analysis: ", secondary.name)
-
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        secondary_context = SecondaryAnalyzerContext(
-                            analysis=analysis,
-                            secondary_analyzer=secondary,
-                            temp_dir=temp_dir,
-                            store=storage,
-                        )
-                        secondary_context.prepare()
-                        secondary.entry_point(secondary_context)
-
-                analysis.is_draft = False
-                storage.save_analysis(analysis)
+                for event in analysis.run():
+                    if event.event == "start":
+                        run_scope.refresh()
+                        if event.analyzer.kind == "primary":
+                            print("Starting base analysis for the test...")
+                        else:
+                            print("Running post-analysis: ", event.analyzer.name)
 
                 run_scope.refresh()
                 print("The test is complete.")
@@ -253,14 +209,15 @@ def new_analysis(
                 print(
                     "You can rename it now if you wish. Or just hit enter to continue."
                 )
-                analysis.display_name = (
+                new_name = (
                     prompts.text("Analysis name", default=analyzer.name) or ""
-                ).strip() or analysis.display_name
-                storage.save_analysis(analysis)
+                ).strip()
+                if new_name:
+                    analysis.rename(new_name)
 
                 print("")
 
-                outputs = get_all_exportable_outputs(storage, suite, analysis)
+                outputs = analysis.get_all_exportable_outputs()
                 print("You now have the option to export the following outputs:")
                 for output in outputs:
                     print("- " + output.name)
@@ -274,7 +231,7 @@ def new_analysis(
                     wait_for_key(True)
                 else:
                     is_export_started = True
-                    export_outputs_sequence(storage, analysis, outputs, export_format)
+                    export_outputs_sequence(context, analysis, outputs, export_format)
 
                 return analysis
 
@@ -314,4 +271,4 @@ def new_analysis(
 
             finally:
                 if analysis.is_draft:
-                    storage.delete_analysis(analysis)
+                    analysis.delete()

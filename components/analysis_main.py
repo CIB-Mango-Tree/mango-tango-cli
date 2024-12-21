@@ -1,26 +1,19 @@
 from colorama import Fore
 
-from analyzer_interface.suite import AnalyzerSuite
-from storage import AnalysisModel, Storage
+from app import AnalysisContext
 from terminal_tools import draw_box, open_directory_explorer, prompts, wait_for_key
-from terminal_tools.inception import TerminalContext
 
-from .analysis_web_server import analysis_web_server
+from .context import ViewContext
 from .export_outputs import export_outputs
 
 
-def analysis_main(
-    context: TerminalContext,
-    storage: Storage,
-    suite: AnalyzerSuite,
-    analysis: AnalysisModel,
-):
+def analysis_main(context: ViewContext, analysis: AnalysisContext):
+    terminal = context.terminal
     while True:
-        analyzer = suite.get_primary_analyzer(analysis.primary_analyzer_id)
-        has_web_server = suite.find_web_presenters(analyzer)
+        has_web_server = len(analysis.web_presenters) > 0
         is_draft = analysis.is_draft
 
-        with context.nest(
+        with terminal.nest(
             draw_box(f"Analysis: {analysis.display_name}", padding_lines=0)
         ):
             if is_draft:
@@ -53,16 +46,24 @@ def analysis_main(
 
         if action == "open_output_dir":
             print("Starting file explorer")
-            open_directory_explorer(storage._get_project_exports_root_path(analysis))
+            open_directory_explorer(analysis.export_root_path)
             wait_for_key(True)
             continue
 
         if action == "export_output":
-            export_outputs(context, storage, suite, analysis)
+            export_outputs(context, analysis)
             continue
 
         if action == "web_server":
-            analysis_web_server(context, storage, suite, analysis)
+            server = analysis.web_server()
+            print("Web server will run at http://localhost:8050/")
+            print("Stop it with Ctrl+C")
+            try:
+                server.start()
+            except KeyboardInterrupt:
+                pass
+            print("Web server stopped")
+            wait_for_key(True)
             continue
 
         if action == "rename":
@@ -72,8 +73,7 @@ def analysis_main(
                 wait_for_key(True)
                 continue
 
-            analysis.display_name = new_name
-            storage.save_analysis(analysis)
+            analysis.rename(new_name)
             print("Analysis renamed")
             wait_for_key(True)
             continue
@@ -99,7 +99,7 @@ def analysis_main(
                 wait_for_key(True)
                 continue
 
-            storage.delete_analysis(analysis)
+            analysis.delete()
             print("🔥 Analysis deleted.")
             wait_for_key(True)
             return
