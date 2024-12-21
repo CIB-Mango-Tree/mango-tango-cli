@@ -1,25 +1,28 @@
 import os
-import tempfile
 from traceback import format_exc
 from typing import Optional
 
 from importing import Importer, ImporterSession, importers
-from storage import Project, Storage
 from terminal_tools import draw_box, prompts, wait_for_key
-from terminal_tools.inception import Scope, TerminalContext
+from terminal_tools.inception import Scope
+
+from .context import ViewContext
 
 
-def new_project(context: TerminalContext, storage: Storage):
-    with context.nest(draw_box("1. Data Source", padding_lines=0)):
+def new_project(context: ViewContext):
+    app = context.app
+    terminal = context.terminal
+
+    with terminal.nest(draw_box("1. Data Source", padding_lines=0)):
         print("Select a file for your dataset")
         selected_file = prompts.file_selector(
-            "Select a file", state=storage.file_selector_state
+            "Select a file", state=app.file_selector_state
         )
         if selected_file is None:
             print("Canceled")
             return wait_for_key(True)
 
-    with context.nest(draw_box("2. Import Options", padding_lines=0)) as scope:
+    with terminal.nest(draw_box("2. Import Options", padding_lines=0)) as scope:
         importer: Optional[ImporterSession] = importer_flow(
             selected_file, importers, scope
         )
@@ -27,25 +30,20 @@ def new_project(context: TerminalContext, storage: Storage):
             print("Canceled")
             return wait_for_key(True)
 
-    with context.nest(draw_box("3. Naming", padding_lines=0)):
+    with terminal.nest(draw_box("3. Naming", padding_lines=0)):
         print(
             "Rename the dataset if you wish. This is how the dataset will appear when you try to load it again."
         )
         suggested_project_name = os.path.splitext(os.path.basename(selected_file))[0]
         project_name = prompts.text("Name", default=suggested_project_name)
 
-    with context.nest(draw_box("4. Import", padding_lines=0)):
+    with terminal.nest(draw_box("4. Import", padding_lines=0)):
         print("Please wait as the dataset is imported...")
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            importer.import_as_parquet(temp_file.name)
-
-        project = storage.init_project(
-            display_name=project_name, input_temp_file=temp_file.name
-        )
+        project = app.create_project(name=project_name, importer_session=importer)
 
         print("Dataset successfully imported!")
         wait_for_key(True)
-        return Project(id=project.id, display_name=project.display_name)
+        return project
 
 
 def importer_flow(

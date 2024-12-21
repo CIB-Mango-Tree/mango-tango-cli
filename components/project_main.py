@@ -1,20 +1,21 @@
 from colorama import Fore
 
-from analyzer_interface.suite import AnalyzerSuite
-from storage import Project, Storage
+from app import ProjectContext
 from terminal_tools import draw_box, prompts, wait_for_key
-from terminal_tools.inception import TerminalContext
 
 from .analysis_main import analysis_main
+from .context import ViewContext
 from .new_analysis import new_analysis
 from .select_analysis import select_analysis
 
 
 def project_main(
-    context: TerminalContext, storage: Storage, suite: AnalyzerSuite, project: Project
+    context: ViewContext,
+    project: ProjectContext,
 ):
+    terminal = context.terminal
     while True:
-        with context.nest(
+        with terminal.nest(
             draw_box(f"CIB Mango Tree/Dataset: {project.display_name}", padding_lines=0)
         ):
             action = prompts.list_input(
@@ -32,15 +33,15 @@ def project_main(
             return
 
         if action == "new_analysis":
-            analysis = new_analysis(context, storage, suite, project)
+            analysis = new_analysis(context, project)
             if analysis is not None:
-                analysis_main(context, storage, suite, analysis)
+                analysis_main(context, analysis)
             continue
 
         if action == "select_analysis":
-            analysis = select_analysis(context, storage, suite, project)
+            analysis = select_analysis(project)
             if analysis is not None:
-                analysis_main(context, storage, suite, analysis)
+                analysis_main(context, analysis)
             continue
 
         if action == "delete_project":
@@ -66,7 +67,7 @@ def project_main(
                 wait_for_key(True)
                 continue
 
-            storage.delete_project(project.id)
+            project.delete()
             print("🔥 Dataset deleted.")
             wait_for_key(True)
             return
@@ -78,8 +79,7 @@ def project_main(
                 wait_for_key(True)
                 continue
 
-            storage.rename_project(project.id, new_name)
-            project.display_name = new_name
+            project.rename(new_name)
             print("🔥 Dataset renamed.")
             wait_for_key(True)
             continue
