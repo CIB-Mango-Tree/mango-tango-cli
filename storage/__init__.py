@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 from filelock import FileLock
 from pydantic import BaseModel
 from tinydb import Query, TinyDB
+from xlsxwriter import Workbook
 
 from analyzer_interface.interface import AnalyzerOutput
 
@@ -180,7 +181,9 @@ class Storage:
         elif extension == "csv":
             output_df.sink_csv(output_path)
         elif extension == "xlsx":
-            output_df.collect().write_excel(output_path)
+            # See https://xlsxwriter.readthedocs.io/working_with_dates_and_time.html#timezone-handling
+            with Workbook(output_path, {"remove_timezone": True}) as workbook:
+                output_df.collect().write_excel(workbook)
         elif extension == "json":
             output_df.collect().write_json(output_path)
         else:
