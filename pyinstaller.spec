@@ -20,8 +20,8 @@ a = Analysis(
         *copy_metadata('readchar'),
 
         # static assets for web servers
-        ('./components/web_static', 'components/web_static'),
-        ('./components/web_templates', 'components/web_templates')
+        ('./app/web_static', 'app/web_static'),
+        ('./app/web_templates', 'app/web_templates')
     ],
     hiddenimports=[
         'readchar',
