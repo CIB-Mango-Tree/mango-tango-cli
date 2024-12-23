@@ -220,7 +220,7 @@ def new_analysis(
                 outputs = analysis.get_all_exportable_outputs()
                 print("You now have the option to export the following outputs:")
                 for output in outputs:
-                    print("- " + output.name)
+                    print("- " + output.descriptive_qualified_name)
                 print("")
 
                 export_format = export_format_prompt()
