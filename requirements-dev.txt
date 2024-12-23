@@ -1,6 +1,5 @@
 -r requirements.txt
 
-pre_commit==4.0.1
 pyarrow-stubs==17.13
 black==24.10.0
 isort==5.13.2
