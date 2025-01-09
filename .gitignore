@@ -5,3 +5,4 @@ __private__
 /dist
 /analysis_outputs
 VERSION
+*.DS_Store
